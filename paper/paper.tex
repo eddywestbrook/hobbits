@@ -1,0 +1,2746 @@
+%%
+%% derived from typeinst.tex from the LLNCS website
+%%
+
+\documentclass[natbib]{sigplanconf}
+
+% The following \documentclass options may be useful:
+%
+% 10pt          To set in 10-point type instead of 9-point.
+% 11pt          To set in 11-point type instead of 9-point.
+% authoryear    To obtain author/year citation style instead of numeric.
+
+\usepackage{amsmath,amssymb,stmaryrd}
+\usepackage{proof}
+\usepackage{url}
+\usepackage{graphicx}
+
+% for typesetting code
+\usepackage{listings}
+\lstset{ basicstyle=\ttfamily\small,showstringspaces=false,captionpos=b }
+
+% comments
+\newif\ifshowcomments
+\showcommentstrue
+
+\ifshowcomments
+\newcommand{\mynote}[2]{\fbox{\bfseries\sffamily\scriptsize#1}
+  {\small$\blacktriangleright$\textsf{\emph{#2}}$\blacktriangleleft$}}
+\else
+\newcommand{\mynote}[2]{}
+\fi
+\newcommand{\noteP}[1]{\mynote{Paul}{#1}}
+\newcommand{\noteE}[1]{\mynote{Edwin}{#1}}
+
+\begin{document}
+
+% For the user-defined commands
+\input{definitions.tex}
+
+%% names of things and a few other basic commands
+\newcommand{\ourlib}{\text{\textsc{HobbitLib}}}
+\newcommand{\fastourlib}{\text{\textsc{Fast HobbitLib}}}
+\newcommand{\Fcc}{\ensuremath{F^{\bigcirc\mathrm{c}}}}
+\newcommand{\Fnu}{\ensuremath{F^{\nu}}}
+
+%% to declare whether we are building the tech report or not
+\newif{\iftechreport}
+\techreportfalse
+
+
+\conferenceinfo{Haskell '11}{September 2011, Tokyo, Japan}
+\copyrightyear{2011} 
+\copyrightdata{978-1-4503-0860-1/11/09} 
+
+%\titlebanner{banner above paper title}        % These are ignored unless
+\preprintfooter{Hobbits for Functional Programming}   % 'preprint' option specified.
+
+\title{Hobbits for Haskell: A Library for Higher-Order Encodings in Functional Programming Languages}
+
+\authorinfo{Edwin Westbrook}
+           {Rice University}
+           {emw4@rice.edu}
+\authorinfo{Nicolas Frisby}
+           {University of Kansas}
+           {nfrisby@ittc.ku.edu}
+\authorinfo{Paul Brauner}
+           {Rice University\\(Current affiliation: Google Inc)}
+           {polux@google.com}
+
+\maketitle
+
+\begin{abstract}
+  Adequate encodings are a powerful programming tool, which eliminate
+  whole classes of program bugs: they ensure that a program cannot
+  generate ill-formed data, because such data is not part of the
+  representation; and they also ensure that a program is well-defined,
+  meaning that it cannot have different behaviors on different
+  representations of the same piece of data. Unfortunately, it has
+  proven difficult to define adequate encodings of programming
+  languages themselves. Such encodings would be very useful in
+  language processing tools such as interpreters, compilers,
+  model-checking tools, etc., as these systems are often difficult to
+  get correct. The key problem in representing programming languages
+  is in encoding binding constructs; previous approaches have serious
+  limitations in either the operations they allow or the correctness
+  guarantees they make. In this paper, we introduce a new library for
+  Haskell that allows the user to define and use higher-order
+  encodings, a powerful technique for representing bindings.  Our
+  library allows straightforward recursion on bindings using
+  pattern-matching, which is not possible in previous approaches.  We
+  then demonstrate our library on a medium-sized example,
+  lambda-lifting, showing how our library can be used to make strong
+  correctness guarantees at compile time.
+\end{abstract}
+
+\category{D.3.3}{Programming Langauges}{Language Constructs and Features}
+
+\terms
+Languages, Design, Theory
+
+%%\keywords
+%%Haskell, Variable-Binding
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%     Section        %%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Introduction}
+
+Having the right data representation can vastly affect the ease with
+which we write correct programs. Ideally, one would like to use a
+representation that is an \emph{adequate encoding}, meaning that the
+relationship between the data being represented and the
+representations of that data is a one-to-one correspondence. Adequate
+encodings eliminate whole classes of program bugs: they ensure that a
+program cannot generate ill-formed data, because such data is not part
+of the representation; and they also ensure that a program is
+well-defined, meaning that it cannot have different behaviors on
+different representations of the same piece of data.
+
+
+Unfortunately, it has proven difficult to define adequate encodings
+of programming languages themselves. Such encodings would be very
+useful in language processing tools such as interpreters,
+compilers, model-checking tools, etc., as these systems are often
+difficult to get correct. The key problem in representing programming
+languages is in encoding binding constructs, such as the
+simply-typed $\lambda$-calculus function
+\[
+\lamabs{x}{A}{x}
+\]
+Such constructs bind a name, in this case $x$, that can only be used
+inside the scope of the binding. Defining adequate encodings of
+bindings is difficult because of $\alpha$-Equivalence and scoping,
+which state respectively that bindings are equal up to renaming of
+bound names and that names cannot occur outside of bindings.  For
+example, straightforward representations based on de Bruijn indices do
+not satisfy scoping because nothing in such representations prevents
+an occurrence of an unbound name.
+
+There has been much research into encodings for bindings in type
+theory \citep{licata09,poswolsky08,pientka08,urban07}, logic
+\citep{miller05,gabbaypitts02}, and programming languages
+\cite{pitts10,mcbride04}.  So far, however, the only approaches that
+can ensure both $\alpha$-Equivalence and Scoping --- and that can be
+used in existing programming languages --- are typed de Bruijn indices
+\citep{sheard05,atkey09} and Higher-Order Abstract Syntax (HOAS)
+\citep{pe88,meijer-hutton95,fegaras96,washburn03}.  Both of these are
+difficult to use: typed de Bruijn indices require a good deal of
+arithmetic (both at the term and the type level); while HOAS requires
+all operations on bindings to be expressed as folds, which cannot
+directly express many desired operations (without adding significant
+support to the programming language as done by e.g.\
+\citet{pientka08}). In fact, the state of the art generally requires
+using both representations, and switching between the two when
+necessary \citep{carette09,atkey09}.
+
+
+In this work, we describe a library, \ourlib\ (for Higher-Order
+Bindings), that allows higher-order encodings in the Haskell
+programming language. By a \emph{higher-order encoding}, we mean an
+encoding of data with name-bindings in which each bound name has an
+associated type in the host language (which is Haskell, in this case).
+Readers familiar with HOAS will note that we use the term
+``higher-order encoding'' in a more general sense than HOAS, where we
+view the latter as a specific instance of the former. Higher-order
+encodings allow us to build adequate encodings of typed programming
+languages. For example, we can build an encoding using our approach
+that does not allow the ill-typed (under simple typing) $\lambda$-term
+$\lamabs{x}{A}{x\;x}$. This in turn ensures that any program we write
+over such encodings, such as a compiler or interpreter, is
+\emph{guaranteed} to produce well-formed, well-typed programs,
+removing whole classes of bugs from such systems.
+
+
+%  representation for bindings that is safe,
+% efficient, and higher-order. This representation has been implemented
+% in a library, called \ourlib\ (for Higher-Order Bindings), that can be
+% downloaded from the authors' webpages.  By safe, we mean that it is an
+% adequate encoding; specifically, names cannot escape their scopes. By
+% efficient, we mean that our approach is faster than other (unsafe)
+% methods that do work in the langauges of today. By higher-order, we
+% mean that our approach allows types to be associated with
+% names. Having a representation that is higher-order allows us to build
+% adequate encodings of typed languages. For example, we can build an
+% encoding using our approach that does not allow the ill-typed (under
+% simple typing) $\lambda$-term $\lamabs{x}{A}{x\;x}$. Readers familiar
+% with HOAS will note that we use the term ``higher-order encoding'' in
+% a more general sense than HOAS, where we view the latter as a specific
+% instance of the former.
+
+
+
+% FIXME: Nominal Logic requires a permutation operation, except
+% that we can't permute arbitrary types, so we instead make a
+% representation with primitive ops that avoids permutation
+At a high level, our approach is based on the Calculus of Nominal
+Inductive Constructions (CNIC), a type theory of bindings
+\cite{westbrook+09,westbrook-thesis}. CNIC encodes bindings with a
+construct called the $\nu$-abstraction, a higher-order construct which
+captures the expected properties of bindings and also allows useful
+features such as pattern-matching on bindings and comparing names. At
+a low level, we show here that $\nu$-abstractions can be defined in
+functional languages like Haskell as pairs \lstinline{(n, body)} of a
+fresh natural number \lstinline{n} and a body \lstinline{body} that is
+allowed to use \lstinline{n} as a name.  This is based on the
+observation by \citet{gabbaypitts02} that bindings are equivalent (in
+Nominal Logic) to pairs of a fresh name and a body of the
+binding. This definition makes it easy to define pattern-matching on
+bindings, a necessary ingredient in defining operations on data with
+bindings. In order to ensure that the number \lstinline{n} stays
+fresh, we make these pairs opaque, allowing them to be manipulated
+only via a suite of operations guaranteed to maintain freshness.
+
+The remainder of the paper is organized as follows.  Section
+\ref{sec:data-with-bindings} defines exactly what properties we expect bindings
+to have and shows how our approach captures these properties, using the
+simply-typed $\lambda$-calculus as an example.  Section
+\ref{sec:matching-on-bindings} shows how to write operations, such as
+capture-avoiding substitution, on data representations using our approach to
+bindings.  Section \ref{sec:lambda-lifting} gives a more extended example,
+lambda-lifting, implemented in \ourlib.  Section \ref{sec:implementation}
+explores the definition of \ourlib\ in Haskell, which includes both unsafe type
+casts and impure I/O operations. Section \ref{sec:safety} proves that our
+approach is both type safe and pure, meaning both that the unsafe casts
+used in \ourlib\ will never cause run-time failures and also that the impure
+I/O operations cannot be observed at run-time.
+% Section \ref{sec:performance} compares the performance of our approach
+% to other methods.
+Section \ref{sec:related-work} then compares to related work and
+Section \ref{sec:conclusion} concludes.  All of the code has been
+implemented and tested using GHC 7, and it can be downloaded from the
+first author's webpage, at \lstinline{http://www.cs.rice.edu/~emw4/}.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%     Section        %%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Defining Data with Bindings}
+\label{sec:data-with-bindings}
+
+In this section, we introduce the notion of binding that \ourlib\
+relies upon, and show how it can be used to define encodings of data
+with bindings. In this paper, a \emph{binding} is a construct, such
+as the $\lambda$-abstraction $\lamabs{x}{A}{t}$ of the simply-typed
+$\lambda$-calculus, that introduces a fresh name in a local scope,
+with the following four properties:
+\begin{itemize}
+\item \textbf{Freshness}: The name that is introduced is distinct from
+  any names bound outside the given binding, so for example the terms
+  $\lamabs{x}{A}{\lamabs{y}{B}{x}}$ and
+  $\lamabs{x}{A}{\lamabs{y}{B}{y}}$ are distinct;
+%
+\item \textbf{$\alpha$-Equivalence}: Terms with name-bindings are
+  equal up to renaming of bound names, so e.g.\ $\lamabs{x}{A}{x}$
+  equals $\lamabs{y}{A}{y}$;
+%
+\item \textbf{Scoping}: A name cannot occur outside a binding for it,
+  so $x$ is only a valid $\lambda$-term inside some binding for $x$;
+  and
+%
+\item \textbf{Typing}: Each name is associated with exactly one type,
+  so e.g.\ $x$ can only be used with type $A$ inside the binding
+  $\lamabs{x}{A}{t}$.
+\end{itemize}
+Note that scoping does not preclude the possibility of open terms. We
+allow the possibility that a name is bound outside of a
+$\lambda$-term, in the meta-language itself, to allow intermediate
+values in a computation that are open. At the top level, though, we
+are only really interested in the closed $\lambda$-terms. Thus scoping
+is really about \emph{adequacy}.
+% It is possible in \ourlib\ to encode
+% the $\lambda$-calculus over a given set of free variables, but that
+% would be an encoding of a different sort of data\noteP{you mean of something different than $\lambda$-calculus right? I had to stop 5 sec. on that sentence}.
+
+Bindings are encoded in \ourlib\ as pairs of a name \lstinline{n} and
+an expression \lstinline{e}, written in this document as
+follows\footnote{ $\nu$ is mnemonic for a new name, a usage that seems
+  to date to \citet{odersky94}.}:
+\[
+\nu\text{\lstinline{n.e}}
+\]
+Intuitively, \lstinline{n} is the name bound by the binding, while
+\lstinline{e} is the scope of the binding. Names always have type
+\lstinline{Name a} for some type \lstinline{a}.  The $\nu$ is
+essentially a constructor, meaning that evaluation is allowed to
+proceed inside a binding (up to the lazy evaluation of Haskell).
+\ourlib\ guarantees both that \lstinline{n} cannot occur outside of
+\lstinline{e} and that \lstinline{n} is always \emph{fresh}, i.e., if
+one binding occurs inside another then the two bound names will always
+be distinct. In order to achieve these guarantees, bindings are opaque
+to the user, meaning that the user cannot see the constructor $\nu$ to
+apply it or pattern-match on it. Otherwise the user could build the
+term $\nu$\lstinline{n.}$\nu$\lstinline{n.e}, which violates
+freshness, or could take the first projection of a binding to extrude
+a name from its scope. This means that the $\nu$ construct is actually
+pseudo-syntax, used in this paper in order to describe \ourlib\ and
+its behavior; in actual programs, the user must use the functions
+defined in \ourlib\ to manipulate bindings.
+
+As an example of using \ourlib\ to encode data with bindings, the
+simply-typed $\lambda$-terms can be encoded in \ourlib\ using the
+following GADT, where \lstinline{Binding a b} is the type of bindings
+$\nu$\lstinline{n.e} where \lstinline{n} has type \lstinline{Name a}
+and \lstinline{e} has type \lstinline{b}:
+\begin{lstlisting}
+data Term a where
+  Var :: Name a -> Term a
+  Lam :: Binding a (Term b) -> Term (a -> b)
+  App :: Term (a -> b) -> Term a -> Term b
+\end{lstlisting}
+Using this type, the simply-typed $\lambda$-terms can be encoded as
+follows, where $\Theta$ is a mapping from bound variables to bound
+names in \ourlib\ and $\Theta,x\mapsto$\lstinline{n} builds the
+obvious extension of $\Theta$:
+\[
+\begin{array}{lcl}
+\lcenc{\Theta}{x} & = & \text{\lstinline{Var}}\;\Theta(x)\\
+\lcenc{\Theta}{\lamabs{x}{A}{t}} & = & \text{\lstinline{Lam}}\;(\nu\text{\lstinline{n.}}\lcenc{\Theta,x\mapsto \text{\lstinline{n}}}{t})\\
+\lcenc{\Theta}{t\;u} & = & \text{\lstinline{App}}\;\lcenc{\Theta}{t}\;\lcenc{\Theta}{u}
+\end{array}
+\]
+For example, the $\lambda$-term $\lamabs{s}{A\to A}{\lamabs{z}{A}{s\;z}}$
+representing the church numeral 1 is encoded as follows:
+\begin{lstlisting}[mathescape]
+Lam ($\nu$s. Lam ($\nu$z. App (Var s) (Var z)))
+\end{lstlisting}
+
+The benefit of this encoding is that it eliminates whole classes of
+program bugs. For one, the encoding is \emph{adequate}, meaning here
+that the values of type \lstinline[mathescape]{Term $\lcenct{A}$} with
+free names of type \lstinline[mathescape]{Name $\lcenct{B_1}$} through
+\lstinline[mathescape]{Name $\lcenct{B_n}$} are in bijective
+correspondence with the simply-typed lambda-terms of type $A$ with
+free variables of type $B_1$ through $B_n$, where $\lcenct{\cdot}$ is
+a suitable encoding of lambda-types into Haskell types that maps
+function types to function types.\footnote{Note that the bijection
+  technically only holds for \emph{strict} values, since the lazy
+  evaluation of Haskell allows the creation of infinite terms, meaning
+  that \lstinline{Term} can in fact contain representations of
+  infinite lambda terms.} This means that values of type
+\lstinline{Term a} are \emph{guaranteed} to be well-typed terms, and
+thus a program cannot accidentally generate (a representation of) an
+ill-formed term. The role that \ourlib\ plays in this guarantee is to
+ensure that (representations of) variables are always used in their
+correct scopes and at their correct types. Thus, for example, a user
+cannot write a function that accidentally removes a variable from its
+scope. In addition, due to the Freshness property, a function cannot
+accidentally capture a free variable when creating a new binding;
+avoiding accidental variable capture often requires complex code to
+get right. Finally, the $\alpha$-Equivalence property ensures that all
+representations for the same binding are indistinguishable, so the
+user cannot accidentally write a function that takes two different
+representations of the same term to different values.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%     Section        %%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Using Data with Bindings}
+\label{sec:matching-on-bindings}
+
+In this section we show by example how to write operations that
+manipulate data with bindings using the primitives of \ourlib. We
+first cover some of the more basic primitives. Most of these
+primitives take a binding $\nu$\lstinline{n.e} and extract some value
+from \lstinline{e} that is guaranteed not to contain \lstinline{n}
+free. This is to ensure that the operation does not violate
+Scoping. \ourlib\ also contains a primitive to apply certain functions
+\lstinline{f} to the body of a binding, that is, to take binding
+$\nu$\lstinline{n.e} and return $\nu$\lstinline{n.(f e)}. Finally,
+Section \ref{subsec:matching-under-bindings} shows how to
+pattern-match on the bodies of bindings by commuting constructors out
+of bindings.
+
+
+In order to make pattern-matching (discussed below) easier to use, we
+generalize bindings to \emph{multi-bindings} which bind zero or more
+fresh names. We write multi-bindings on paper as follows:
+\[
+\nu\text{\lstinline{(n1, ..., nk).e}}
+\]
+Similar to bindings, this construct is a pair of a list of fresh names
+and a body \lstinline{e} in which those names are bound, where
+$\nu$ is again an opaque constructor. The type of such a multi-binding
+is
+\[
+\text{\lstinline{Mb (CtxCons ... (CtxCons CtxNil a1) ... ak) b}}
+\]
+where \lstinline{n1}, \ldots, \lstinline{nk} are names of type
+\lstinline{Name a1}, \ldots, \lstinline{Name ak}, respectively, and
+\lstinline{e} has type \lstinline{b}.  Note that the types are listed
+\emph{inside-out}, meaning that the type of the name bound last in the
+multi-binding is listed first. This convention is useful in the common
+case, when more bindings are added to the inside of a multi-binding.
+This will become more clear in the examples below.  The types
+\lstinline{CtxNil} and \lstinline{CtxCons l a} are so-called
+\emph{phantom types} \cite{leijen99}; i.e., they are only used to
+represent lists of types at the type level, and do not represent any
+data.
+
+
+Figure \ref{fig:hobbit-ops} summarizes the external interface of
+\ourlib, other than the pattern-matching facility discussed in Section
+\ref{subsec:matching-under-bindings}. This figure begins with a number
+of ``helper'' declarations.\footnote{The declarations involving
+  type contexts are actually separated into the companion
+  \lstinline{Ctx} module, also bundled with \ourlib.}
+The first two lines declare the phantom types
+\lstinline{CtxNil} and \lstinline{CtxCons} for constructing type-level
+lists. The next declaration defines \lstinline{Binding}s as
+multi-bindings that bind just one name.  After this is a declaration
+for the type
+% comment to prevent meta-q from wrapping the \lstinline
+\lstinline{a :=: b} of \emph{proof objects} which prove that type
+\lstinline{a} equals type \lstinline{b}. This is a GADT with one
+constructor, \lstinline{Refl}, which proves that \lstinline{a :=: a}
+for any type \lstinline{a}.
+% (See, e.g., [FIXME] for a more in-depth
+% discussion of proof objects in Haskell.)
+Since \lstinline{Refl} is the only constructor for
+% comment to prevent meta-q from wrapping the \lstinline
+\lstinline{a :=: b}, it is straightforward to see that a value of type
+\lstinline{a :=: b} can only be constructed if type \lstinline{a} and
+\lstinline{b} are in fact the same types.
+
+
+\begin{figure}[t]
+\vspace{-5pt}
+\begin{lstlisting}
+-- phantom types
+data CtxNil
+data CtxCons l a
+
+-- bindings are one-name multi-bindings
+type Binding a b = Mb (CtxCons CtxNil a) b
+
+-- proofs of type equality
+data a :=: b where Refl :: a :=: a
+
+-- proofs that a type is in a context
+data InCtx ctx a where
+  InCtxBase :: InCtx (CtxCons ctx a) a
+  InCtxStep :: InCtx ctx a ->
+               InCtx (CtxCons ctx b) a
+
+-- context append
+type family (ctx1 :++: ctx2)
+type instance ctx1 :++: CtxNil = ctx1
+type instance ctx1 :++: (CtxCons ctx2 a) =
+  (CtxCons (ctx1 :++: ctx2) a)
+
+-- proofs of context append
+data IsAppend ctx1 ctx2 ctx where
+  IsAppendBase :: IsAppend ctx CtxNil ctx
+  IsAppendStep ::
+    IsAppend ctx1 ctx2 ctx ->
+    IsAppend ctx1 (CtxCons ctx2 x)
+                  (CtxCons ctx x)
+
+-- operations of HobbitLib
+nu :: (Name a -> b) -> (Binding a b)
+emptyMb :: a -> Mb CtxNil a
+elimEmptyMb :: Mb CtxNil a -> a
+
+combineMb :: Mb ctx1 (Mb ctx2 a) ->
+             Mb (ctx1 :++: ctx2) a
+
+separateMb :: IsAppend ctx1 ctx2 ctx ->
+              Mb ctx b -> Mb ctx1 (Mb ctx2 b)
+
+cmpName :: Name a -> Name b -> Maybe (a :=: b)
+
+mbNameBoundP :: Mb ctx (Name a) ->
+                Either (InCtx ctx a) (Name a)
+
+mbToplevel :: SuperComb (a -> b) ->
+              Mb ctx a -> Mb ctx b
+\end{lstlisting}
+\caption{External Interface to \ourlib}
+\label{fig:hobbit-ops}
+\end{figure}
+
+
+The next declaration in Figure \ref{fig:hobbit-ops} defines the type
+\lstinline{InCtx ctx a}.  This GADT defines \emph{proof objects} that
+witness the fact that the type \lstinline{a} is in the type context
+\lstinline{ctx}. The first constructor, \lstinline{InCtxBase}, is a
+proof that the last type in a type context is in that type
+context. The second constructor, \lstinline{InCtxStep}, takes a proof
+that type \lstinline{a} is in context \lstinline{ctx} and builds a
+proof that \lstinline{a} is in the result of adding any other type to
+the end of \lstinline{ctx}.  Given these declarations, it is
+straightforward to see that, given a value of type
+\lstinline{InCtx ctx a}, it must be the case that \lstinline{a} is
+listed somewhere in \lstinline{ctx}.
+
+
+The last helper declarations in Figure \ref{fig:hobbit-ops} define an
+append operation \lstinline{ctx1 :++: ctx2} on type contexts
+\lstinline{ctx1} and \lstinline{ctx2}.  This operation uses the
+Haskell type family functionality that allows for the definition of
+computations on types. The first \lstinline{instance} declaration
+states that the type \lstinline{ctx1 :++: CtxNil} is equal to the type
+\lstinline{ctx1}, while the second states that
+\lstinline{ctx1 :++: (CtxCons ctx2 a)} equals the result of appending
+\lstinline{ctx2} to the end of \lstinline{ctx1} and then appending
+\lstinline{a}. Figure \ref{fig:hobbit-ops} also defines the type
+\lstinline{IsAppend ctx1 ctx2 ctx} of proof objects that witness the
+fact that appending \lstinline{ctx1} and \lstinline{ctx2} yields
+\lstinline{ctx}. The definition of this type mirrors the definition of
+the \lstinline{:++:} type function.
+
+
+After these helper declarations, Figure \ref{fig:hobbit-ops} gives the
+binding-related operations of \ourlib.  First is the \lstinline{nu}
+operator, which is the way to create bindings in \ourlib.
+Intuitively, this operator creates a binding by generating a fresh
+name and passing it to a user-supplied function \lstinline{f}, which
+returns the body of the newly created binding.  More technically,
+\lstinline{nu f} generates a fresh name \lstinline{n} and then reduces
+to $\nu$\lstinline{n. f n}, where the reduction of \lstinline{f n} can
+then occur inside the binding. For example, the code
+\begin{lstlisting}
+Lam (nu (\s ->
+  Lam (nu (\z -> App (Var s) (Var z)))))
+\end{lstlisting}
+creates the church numeral 1 given above.  Note that ``generates a
+fresh name'' sounds at first like it violates Haskell's purity
+restriction that allows only side-effect-free code. Indeed, inside the
+\ourlib\ library, \lstinline{nu} uses the infamous
+\lstinline{unsafePerformIO} operation. We show in Section
+\ref{sec:safety}, however, that \lstinline{nu} is \emph{effectively}
+pure, meaning that its side effects cannot be observed (except inside
+\ourlib).
+
+
+After \lstinline{nu}, Figure \ref{fig:hobbit-ops} declares
+\lstinline{emptyMb} and \lstinline{elimEmptyMb}. These intuitively add
+and remove, respectively, an empty multi-binding with no names around
+a value. Thus, for example, if \lstinline{i} is an integer then
+\lstinline{emptyMb i} intuitively returns the result
+$\nu$\lstinline{().i}, and applying \lstinline{elimEmptyMb} to this
+result removes the empty name list and returns \lstinline{i} again.
+
+
+Next comes the \lstinline{combineMb} operation, which takes two nested
+multi-bindings and combines them into a single multi-binding
+containing the names of both multi-bindings. The type of
+\lstinline{combineMb} expresses that it takes a multi-binding for
+\lstinline{ctx1} that contains a nested multi-binding for
+\lstinline{ctx2} and returns a multi-binding for
+% comment to prevent meta-q from wrapping the \lstinline
+\lstinline{ctx1 :++: ctx2}.  The inverse operation,
+\lstinline{separateMb}, takes a multi-binding for
+\lstinline{ctx1 :++: ctx2} and separates it into two nested
+multi-bindings for \lstinline{ctx1} and \lstinline{ctx2},
+respectively. For any given type context, however, there may be multiple ways
+to represent it as a context append \lstinline{ctx1 :++: ctx2}. The first
+argument to \lstinline{separateMb}, therefore, both guarantee that the context
+can be divided in the requested way and also inform the Haskell type system
+which \lstinline{ctx1} and \lstinline{ctx2} are intended.
+
+
+Names can be compared using the \lstinline{cmpName} operator, which
+takes any two names, possibly of different types, and compares them.
+If the names are equal, then \lstinline{cmpName} returns
+\lstinline{Just p}, where \lstinline{p} is a proof that the types of
+the two names are equal. This is because \ourlib\ dictates that a name
+must have exactly one type, by the Typing property. If two names are
+not equal, then \lstinline{cmpName} returns the value
+\lstinline{Nothing}.
+
+The programmer can also test if a name inside a multi-binding is bound
+by that multi-binding using the \lstinline{mbNameBoundP} operation.
+This operation takes an input of type \lstinline{Mb ctx (Name a)} and
+returns either the name itself, if the name is not bound by the
+multi-binding, or a result of type \lstinline{InCtx ctx a}.
+Intuitively, the latter type is used because, if a name is bound by a
+multi-binding of names whose types are listed in the type context
+\lstinline{ctx}, then its type must in \lstinline{ctx}.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%
+%%%%% Sub-Section %%%%%
+%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Operating under Bindings}
+\label{subsec:mbtoplevel}
+
+The final operation listed in Figure \ref{fig:hobbit-ops} is
+\lstinline{mbToplevel}, which allows functions to be applied inside
+bindings. This operation takes a function \lstinline{f} and a
+multi-binding
+% comment here so meta-q does not wrap the \lstinline...
+$\nu$\lstinline{(n1, ..., nk).e} and returns the result of
+$\nu$\lstinline{(n1, ..., nk).(f e)}. This operation is only safe,
+however, when \lstinline{f} has no free names; otherwise, the danger
+is that \lstinline{f} could contain some other binding for some
+\lstinline{ni}. This would violate Freshness, since the result would
+contain a binding for \lstinline{ni} inside another binding for the
+same name. Stated differently, since \ourlib\ cannot in general
+perform $\alpha$-conversion on bindings, it instead disallows cases
+where $\alpha$-conversion is required.
+
+One sufficient condition for guaranteeing that the \lstinline{f}
+argument to \lstinline{mbToplevel} has no free names is to restrict it
+to \emph{super combinators}, i.e., expressions that are top-level,
+whose only free variables reference top-level definitions. Since the
+\ourlib\ interface does not permit the top-level definition of a
+\lstinline{Name} value (because of Scoping), this prevents
+\lstinline{mbToplevel} from violating Freshness.
+
+To ensure that functions passed to \lstinline{mbToplevel} are super
+combinators, \ourlib\ uses Haskell's metaprogramming facility,
+Template Haskell \cite{sheard-peyton-jones-02}. Specifically, \ourlib\
+defines a type \lstinline{SuperComb} for representing super
+combinators, along with a function \lstinline{superComb} for
+creating elements of this type. The \lstinline{superComb} function
+takes a quoted Template Haskell expression and validates that
+the expression is indeed a super combinator, raising an error
+if not. In addition, \ourlib\ leaves the \lstinline{SuperComb} type
+abstract, ensuring that any element of this type created by
+the user must be validated by \lstinline{superComb}.
+
+As an example, we demonstrate how to use \lstinline{superComb} and
+\lstinline{mbTopLevel} to define a function that adds a binding to the
+inside of a multi-binding. This function is called
+\lstinline{mbLower}, as it intuitively \emph{lowers} the body of a
+multi-binding into a context with more bindings, and can be defined as
+follows:
+\begin{lstlisting}
+mbLower :: Mb ctx a -> Mb (CtxCons ctx b) a
+mbLower =
+  combineMb .
+  mbToplevel $(superComb [| nu . const |])
+\end{lstlisting} %% $
+The \lstinline{mbLower} function works by first creating a quoted
+Template Haskell expression using the Template Haskell brackets
+(\lstinline{[|} and \lstinline{|]}), applying \lstinline{superComb} to
+validate the syntactic restrictions for super combinators, and then
+using the Template Haskell \lstinline{$} operator to splice the
+wrapped quotation back in as the first argument of
+\lstinline{mbToplevel}. Note that this pattern of usage ensures that
+\lstinline{superComb} is called at compile time, since it occurs
+inside the \lstinline{$} operator, and thus any errors raised by
+\lstinline{superComb} --- because the argument is not a valid super
+combinator --- are signaled before the code is run.
+
+The quoted expression here composes \lstinline{const} and
+\lstinline{nu}.  The first of these, \lstinline{const}, takes an
+expression \lstinline{e} and builds a function that returns
+\lstinline{e}, ignoring its argument, while \lstinline{nu} then
+generates a fresh name and passes the name to the newly created
+function, thereby creating a binding whose body is \lstinline{e}.  The
+use of \lstinline{mbToplevel} then applies this function inside a
+multi-binding, creating a new binding inside the existing
+multi-binding of its argument. Finally, \lstinline{combineMb} combines
+these two bindings to create a single, unified multi-binding.
+
+% \begin{figure}
+% \begin{lstlisting}[basicstyle=\ttfamily\scriptsize]
+% mbLower :: Mb ctx a -> Mb (CtxCons ctx b) a
+% mbLower = combineMb . mbToplevel $(superComb [| nu . const |])
+% \end{lstlisting}
+% \caption{Example Operation \lstinline{mbLower} Defined with \lstinline{superComb}}
+% \label{fig:mbtoplevel-examples}
+% \end{figure}
+
+
+% \begin{figure}
+% \begin{lstlisting}[basicstyle=\ttfamily\scriptsize]
+% -- empty data declaration for tagging purposes
+% data MbMbNBP
+
+% -- instance with topFun = mbNameBoundP
+% instance ToplevelFun MbMbNBP
+%                      (Mb ctx (Name a)) where
+%   type ToplevelRes MbMbNBP (Mb ctx (Name a)) =
+%     Either (InCtx ctx a) (Name a)
+%   topFun _ n = mbNameBoundP n
+
+% -- using mbNameBoundP
+% mbMbNameBoundP
+%     :: Mb ctx1 (Mb ctx2 (Name a)) ->
+%        Mb ctx1 (Either (InCtx ctx2 a) (Name a))
+% mbMbNameBoundP = mbToplevel (Tag :: Tag MbMbNBP)
+
+% -- testing if a name is the last one bound
+% cmpLastName :: Mb (CtxCons ctx b) (Name a) ->
+%                 Maybe (Mb ctx (Name a))
+% cmpLastName n =
+%   case mbMbNameBoundP
+%          (separateMb
+%           (IsAppendStep IsAppendBase) n) of
+%     [nuQQ| Left _ |] -> Nothing
+%     [nuQQ| Right n |] -> Just [nuQQ| n |]
+
+% -- adding a binding inside another
+% data MbLowerRTag b
+% instance ToplevelFun (MbLowerRTag b) a where
+%     type ToplevelRes (MbLowerRTag b) a =
+%         Binding b a
+%     topFun _ x = nu $ const x
+
+% mbLower :: Mb ctx a -> Mb (CtxCons ctx b) a
+% mbLower = combineMb . (mbToplevel
+%                         (Tag :: Tag (MbLowerRTag b)))
+
+% -- a reification of a context at the term level
+% type Ctx ctx = MapCtx Tag ctx
+
+% -- lowering into multiple bindings
+% lowerMulti :: Ctx ctx -> a -> Mb ctx a
+% lowerMulti EmptyMC a = emptyMb a
+% lowerMulti (ctx :> Tag) a =
+%   combineMb $ lowerMulti ctx (nu (\_ -> a))
+
+% -- make a bound name for the last name in the context
+% mkBoundName :: Ctx ctx -> Mb (CtxCons ctx a) (Name a)
+% mkBoundName ctx =
+%   combineMb (lowerMulti ctx (nu (\n -> n)))
+% \end{lstlisting}
+% \caption{Example Operations Defined with \lstinline{mbToplevel}}
+% \label{fig:mbtoplevel-examples}
+% \end{figure}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%
+%%%%% Sub-Section %%%%%
+%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Pattern-Matching under Bindings}
+\label{subsec:matching-under-bindings}
+
+The most powerful facilities of \ourlib\ are those allowing for
+pattern-matching on the contents of multi-bindings. Specifically,
+\ourlib\ allows the user to match terms of type \lstinline{Mb ctx a}
+against patterns $\nu$\lstinline{(n1,...,nk).P} where \lstinline{P} is
+a pattern of type \lstinline{a}.  To support this, we must solve two
+issues: we do not wish to expose the $\nu$ constructor to the
+programmer in order to ensure Freshness and Scoping, as discussed
+above; and, even without exposing the $\nu$ constructor directly, the
+most straightforward approach to pattern-matching under bindings can
+accidentally violate Scoping. We discuss these two problems and our
+solution in the remainder of this section.
+
+
+To solve the first issue, that we do not wish to expose the $\nu$
+constructor to the user, we use Haskell's quasi-quotation mechanism
+\cite{mainland07} to allow \ourlib\ to automatically and safely
+generate Haskell patterns to match multi-bindings. If \lstinline{P} is
+a Haskell pattern, then the programmer can write
+% spacing for \lstinline
+\lstinline{[nuQQ| P |]} to match a multi-binding whose body matches
+\lstinline{P}. We call such patterns $\nu$-patterns in the below.
+Internally, this syntax directs the Haskell compiler to call the
+quasi-quoter \lstinline{nuQQ}, defined in the \ourlib\ library, at
+compile time to generate the necessary pattern. As an example, the
+following defines a function \lstinline{mbBool} that intuitively lifts
+a boolean value out of a multi-binding:
+\begin{lstlisting}
+mbBool :: Mb ctx Bool -> Bool
+mbBool [nuQQ| True |] = True
+mbBool [nuQQ| False |] = False
+\end{lstlisting}
+The first case matches $\nu$\lstinline{(n1,...,nk).True} for any list
+of names \lstinline{n1} through \lstinline{nk}. It then gives
+\lstinline{True}, outside of the multi-binding, as the return
+value. Similarly, the second case matches a multi-binding containing
+\lstinline{False} and returns \lstinline{False} outside of the
+multi-binding. We use the term \emph{lifting function} for functions
+like \lstinline{mbBool} which intuitively lift a value out of a
+multi-binding.
+
+
+This approach is not possible for types that effectively have
+infinitely many constructors, such as the integers. For such types,
+\ourlib\ exports special-purpose lifting functions; at present,
+these include the following:
+\begin{lstlisting}
+mbInt :: Mb ctx Int -> Int
+mbChar :: Mb ctx Char -> Char
+mbString :: Mb ctx String -> String
+\end{lstlisting}
+Note that the last function, \lstinline{mbString}, can in fact be
+defined by the user using \lstinline{mbChar} and pattern-matching over
+lists, but this operation is needed often enough that we include it in
+\ourlib. In addition, a user-defined \lstinline{mbString} function
+would in fact take time linear in the size of the string, while the
+internally defined version is constant time. These internally-defined
+lifting functions also behave slightly differently than user-defined
+lifting functions with regards to termination, as the latter require
+the body of a multi-binding to have a weak head normal form. This is
+not usually a problem in practice, however.
+
+
+The second issue that arises in defining pattern-matching under
+bindings is that the most straightforward approach can lead to a
+violation of Scoping. This has to do with how variables are handled in
+$\nu$-patterns. Consider, for example, the following function:
+\begin{lstlisting}
+unsafe :: Mb ctx (Name a) -> Name a
+unsafe [nuQQ| x |] = x
+\end{lstlisting}
+Intuitively, this function matches any name inside a multi-binding,
+including names that are bound by the multi-binding itself, and
+removes that name from the multi-binding. Note that such a function
+can also be unsafe for types other than \lstinline{Name a} such as
+the \lstinline{Term a} type defined above that can contain names.
+
+To address this issue, the pattern generated by the
+% comment here to prevent meta-q from wrapping the \lstinline
+\lstinline{[nuQQ| P |]} quasiquotation implicitly ``re-wraps'' the
+multi-binding of the argument around all variables bound by
+\lstinline{P}. Thus pattern variables from $\nu$-patterns are never
+separated from the context where their names are guaranteed to be
+bound, and so Scoping is preserved. The \lstinline{unsafe} function
+above is actually ill-typed; the type of \lstinline{x} is again
+\lstinline{Mb ctx (Name a)}, so changing the type signature
+accordingly would essentially yield the identity function. The
+\lstinline{nuQQ} quasi-quoter is defined in Section
+\ref{sec:implementation}.
+
+As an example, the following computes the length of a list
+inside a multi-binding:
+\begin{lstlisting}
+mbLen :: Mb ctx [a] -> Int
+mbLen [nuQQ| [] |] = 0
+mbLen [nuQQ| x:l |] = 1 + mbLen l
+\end{lstlisting}
+The first case matches the empty list inside a multi-binding and
+returns 0. The second case matches a cons \lstinline{x:l} inside a
+multi-binding and returns 1 plus the result of the recursive call on
+\lstinline{l}. Recall that \lstinline{l} has type % (for lstinline)
+\lstinline{Mb ctx [a]} on the right-hand side; the \lstinline{nuQQ}
+quasi-quoter has already re-wrapped the tail of the list in the
+multi-binding to preserve Scoping. Note again that allowing the tail
+of the list to escape the scope of its multi-binding could violate
+Scoping if, for example, it is a list of names, but this might not be
+known until run-time as the type of \lstinline{mbLen} is polymorphic
+in \lstinline{a}.
+
+%%%%%%%%%%%%%%%%%%%%%%%
+%%%%% Sub-Section %%%%%
+%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Illustrative Examples}
+\label{subsec:small-examples}
+
+In this section, we illustrate the use of \ourlib\ by giving two small
+examples using the \lstinline{Term} type of simply-typed lambda-terms
+defined above. A larger example is given in Section
+\ref{sec:lambda-lifting}. The examples are listed in Figure
+\ref{fig:small-examples}, along with some helper declarations which
+shall be described below. These include a function \lstinline{eq} that
+tests equality of two terms and a function \lstinline{subst} which
+performs capture-avoiding, type-safe substitution of a term into a
+binding. Note that both of these are defined using helper functions,
+\lstinline{meq} and \lstinline{msubst}, respectively, that operate on
+a term in a multi-binding.  This pattern of defining a function on
+type \lstinline{a} by defining a function over multi-bindings
+containing \lstinline{a} is common in \ourlib. At a high level, this
+approach is essentially avoiding $\alpha$-conversion by maintaining a
+context of all the bound names that have been seen during the
+traversal. Note that this is different from approaches such as Beluga
+\cite{pientka08} where \emph{all} the bound names must be listed with
+the term; instead, in \ourlib, there is always the possibility that a
+name is bound outside the current scope in which the current function
+is being called.
+% Because we avoid $\alpha$-conversion, this also means that \ourlib\ is
+% efficient (see Section \ref{sec:performance}), since it need not
+% $\alpha$-convert the whole subterm each time it traverses a binder.
+
+
+\begin{figure}[t]
+\vspace{-5pt}
+\begin{lstlisting}
+-- test if two InCtx proofs have
+-- the same length (code omitted)
+inCtxSameLen :: InCtx cxt1 a1 ->
+                InCtx cxt2 a2 -> Bool
+
+-- boolean version of cmpName (code omitted)
+cmpNameBool :: Name a -> Name b -> Bool
+
+-- equality under multi-bindings
+meq :: (Mb ctx1 (Term a1)) ->
+       (Mb ctx2 (Term a2)) -> Bool
+meq [nuQQ| Var bv1 |] [nuQQ| Var bv2 |] =
+  case (mbNameBoundP bv1, mbNameBoundP bv2) of 
+    (Left p1, Left p2)   -> inCtxSameLen p1 p2
+    (Right n1, Right n2) -> cmpNameBool n1 n2
+    _                    -> False
+meq [nuQQ| App f1 a1 |] [nuQQ| App f2 a2 |] =
+  meq f1 f2 && meq a1 a2
+meq [nuQQ| Lam b1 |] [nuQQ| Lam b2 |] =
+  meq (combineMb b1) (combineMb b2)
+meq _ _ = False
+
+-- equality of terms
+eq :: Term a -> Term b -> Bool
+eq t u = meq (emptyMb t) (emptyMb u)
+
+-- tuples whose types are indexed by ctx
+data MapCtx f ctx where
+  Empty :: MapCtx f CtxNil
+  (:>) :: MapCtx f ctx -> f a ->
+          MapCtx f (CtxCons ctx a)
+
+-- tuple lookup (code omitted)
+ctxLookup :: InCtx ctx a -> MapCtx f ctx -> f a
+
+-- multi-arity substitution
+msubst :: Mb ctx (Term a) ->
+          MapCtx Term ctx -> Term a
+msubst [nuQQ| Var bn |] ts =
+  case mbNameBoundP bn of
+    Left p  -> ctxLookup p ts
+    Right n -> Var n
+msubst [nuQQ| App f a |] ts =
+  App (msubst f ts) (msubst a ts)
+msubst [nuQQ| Lam b |] ts =
+  Lam $ nu $ \n ->
+    msubst (combineMb b) (ts :> Var n)
+
+-- substituting a single term
+subst :: Binding a (Term b) -> Term a -> Term b
+subst b t = msubst (Empty :> t) b
+\end{lstlisting}
+\caption{Equality and Substitution in \ourlib}
+\label{fig:small-examples}
+\end{figure}
+
+
+The \lstinline{meq} function takes two terms in multi-bindings and
+tests if the terms are equal. Note that it does not require the two
+terms to have the same type or the multi-bindings to have the same
+type contexts, as this would make it much more complex to write the
+case for \lstinline{App}. The first case matches terms that are both
+variables, i.e., that both use the \lstinline{Var} constructor. It
+then uses \lstinline{mbNameBoundP} to determine if both variables are
+bound in their respective multi-bindings: if so, then
+\lstinline{inCtxSameLen} (whose code is omitted) is called on the
+\lstinline{InCtx} proofs returned, to determine if both names were
+bound at the same place in the term; if both names are free then they
+are compared with \lstinline{cmpNameBool} (whose code is omitted);
+otherwise, if one is bound and the other is free, they cannot be
+equal, and \lstinline{False} is returned.
+
+
+The second case of \lstinline{meq} matches two applications, i.e., two
+terms in multi-bindings that both start with \lstinline{App}.  This
+case recurses on the two pairs of subterms, checking if the two
+functions and arguments are equal.  The third case, where both terms
+start with \lstinline{Lam}, is similar, except that arguments to
+\lstinline{Lam} are themselves bindings, so the results of the
+$\nu$-patterns are bindings inside multi-bindings. Thus
+\lstinline{combineMb} is called to combine the inner and outer
+bindings, resulting in a pair of terms inside larger multi-bindings,
+and the recursion then proceeds on the results.  This case illustrates
+why type contexts are represented inside-out, as discussed in the
+beginning of Section \ref{sec:matching-on-bindings}, since
+$\nu$-patterns for binding constructs like \lstinline{Lam} result in
+single bindings inside of multi-bindings.  The final case matches
+terms with different constructors, in which case \lstinline{False} is
+returned. The \lstinline{eq} function, for comparing terms that are
+not in multi-bindings, is then defined by first calling
+\lstinline{emptyMb} on both terms to put them inside empty
+multi-bindings, and then by calling \lstinline{meq} on the results.
+
+
+The second example in Figure \ref{fig:small-examples} defines the
+function \lstinline{msubst}, which performs multi-arity substitution.
+The first argument to \lstinline{msubst} is a term of type
+\lstinline{Term a} inside a multi-binding with type context
+\lstinline{ctx}. The second argument is a tuple containing one
+lambda-term for each type listed in \lstinline{ctx}, i.e., containing
+a lambda-term of type \lstinline{b} for each name of type
+\lstinline{b} bound by the multi-binding in the first argument.
+Intuitively, these terms are being substituted for the bound names in
+the first argument. The type of the second argument is
+\lstinline{MapCtx Term ctx}, which intuitively maps the type function
+\lstinline{Term} over the types listed in \lstinline{ctx} using the
+GADT given in the figure.  This tuple argument is used by the first
+case of \lstinline{msubst}, which matches the \lstinline{Var} case of
+the first argument.  In this case, \lstinline{mbNameBoundP} is called
+to determine if the name used by \lstinline{Var} is bound in the
+multi-binding around the term: if so, then \lstinline{ctxLookup}
+(whose code is omitted) is called to return the term in the tuple
+argument that has the same type as the bound name; otherwise, the name
+is free and is removed from the multi-binding, and so is returned as
+the result.  The second case of \lstinline{msubst}, for
+\lstinline{App}, simply recurses on the two subterms.
+
+The third case, for \lstinline{Lam} recurses on the result of calling
+\lstinline{combineMb} on the argument to \lstinline{Lam}, as in
+\lstinline{meq}. The result is put inside a new application of
+\lstinline{Lam}, which uses \lstinline{nu} to bind a new name
+\lstinline{n}. Note that we cannot re-use the old name that was
+previously bound at this location, because of the possibility that one
+of the terms being substituted into the body of the \lstinline{Lam}
+(i.e., one of the terms listed in the second argument) uses the same
+name. Thus this sort of re-use could potentially violate
+Freshness. The second argument, which is the tuple of terms to use for
+bound names, is then extended to contain the new bound name
+\lstinline{n}. This explains why substitution is defined here as
+multi-arity substitution, in order to ``freshen up'' the bound names.
+Note that it is possible instead to define an $\alpha$-conversion
+operation in a similar manner, using a tuple argument of type
+\lstinline{MapCtx Name ctx} to contain the fresh names to be used in
+place of the old ones, but combining the operation of freshening up
+the names with the definition of substitution yields a definition of
+substitution that is quadratic instead of cubic.  The function
+\lstinline{subst}, which substitutes a single term into another, is
+then defined with a call to \lstinline{msubst} using a one-element
+\lstinline{MapCtx} tuple.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%     Section        %%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Extended Example: Lambda-Lifting}
+\label{sec:lambda-lifting}
+
+In this section, we demonstrate how \ourlib\ can be used on a larger
+example, lambda-lifting (also known as closure conversion; see, e.g.,
+\cite{peyton-jones87}). Using \ourlib, our approach defines
+lambda-lifting as a function over an adequate encoding of simply-typed
+lambda-terms with top-level declarations. This means that our
+lambda-lifting function is \emph{statically guaranteed} by the Haskell
+compiler to be type-preserving, meaning that it can only produce an
+output of the same type as the input. The code described here has been
+implemented, type-checked, and tested using GHC version 7.0.3, and
+takes 170 lines of non-comment, non-whitespace Haskell (not including
+tests, pretty-printing, and extensions). It can be downloaded with
+\ourlib\ at \lstinline{http://www.cs.rice.edu/~emw4/hobbits.tgz}
+
+
+The goal of lambda-lifting is to transform a functional program so
+that all functions are top-level declarations, thus making it easier
+to compile. To do this, each lambda-abstraction that occurs in a term
+is ``lifted'' to be a top-level declaration. The process of lifting a
+lambda also abstracts over all variables that occur free in that
+lambda, since those variables will not be bound at the top level. The
+original occurrence of the lambda is then replaced by a call to this
+new top-level declaration, applying it to all the variables that were
+free in the original lambda.
+
+As an example, consider the following term:
+\[
+\lamabsnot{f}{\lamabsnot{g}{f\;(\lamabsnot{x}{g\;(g\;x)})}}
+\]
+To lambda-lift this term, we lift the inner lambda (the argument to
+$f$) to be a top-level declaration. Since this lambda has the variable
+$g$ free, we must abstract over $g$ when we lift it. The occurrence
+of the inner lambda then gets replaced by a call to the top-level
+declaration applied to the free variable $g$. The entire term is
+then lifted as well, since it is itself a lambda, and the result
+is as follows, where we use \letname\ for top-level declarations
+and use capital letters for the variables they bind:
+\[
+\lete{F_1}{\lamabsnot{g}{\lamabsnot{x}{g\;(g\;x)}}}{
+\lete{F_2}{\lamabsnot{f}{\lamabsnot{g}{f\;(F_1\;g)}}}{
+  F_2
+}}
+\]
+Note that the declaration for $F_1$, which corresponds to the inner
+lambda, has an extra lambda-abstraction for the variable $g$. The
+original occurrence of the inner lambda has been replaced by a call to
+$F_1$, which is applied to the variable $g$.
+
+
+Figure \ref{fig:decls} defines two types derived from the
+\lstinline{Term} type given in Section~\ref{sec:data-with-bindings},
+one for the source terms to be lambda-lifted and one for the resulting
+terms. In these new types, bound names are separated into two sorts by
+their types: names of type \lstinline{D a} (for some \lstinline{a})
+are bound by declarations, while those of type \lstinline{L a} are
+bound by lambda-abstractions of the parameter list of a
+declaration. The source type, again called \lstinline{Term}, merely
+adds the type \lstinline{L} to the bindings and variable occurrences
+in the original \lstinline{Term} type. Because lambda-lifting replaces
+all lambdas with top-level declarations, the result type, which we
+call \lstinline{DTerm}, has no lambda constructor. It also has
+separate constructors \lstinline{Var} and \lstinline{DVar} for
+occurrences of lambda-bound and declaration-bound variables,
+respectively.
+
+
+\begin{figure}
+\vspace{-5pt}
+\begin{lstlisting}[basicstyle=\ttfamily\scriptsize]
+-- type tags for declaration- vs lambda-bound names
+data D a
+data L a
+
+-- terms with only lambda-bound variables
+data Term :: * -> * where
+  Var :: Name (L a) -> Term a
+  Lam :: Binding (L b) (Term a) -> Term (b -> a)
+  App :: Term (b -> a) -> Term b -> Term a
+
+-- terms under top-level declarations (no lambdas)
+data DTerm a where
+  TVar :: Name (L a) -> DTerm a
+  TDVar :: Name (D a) -> DTerm a
+  TApp :: DTerm (a -> b) -> DTerm a -> DTerm b
+
+-- top-level declarations have at least one parameter
+data Decl a where
+  DeclBase :: Binding (L b) (DTerm a) -> Decl (b -> a)
+  DeclCons :: Binding (L b) (Decl a) -> Decl (b -> a)
+
+-- top-level declarations paired with a return value
+data Decls a where
+  DeclsBase :: DTerm a -> Decls a
+  DeclsCons :: Decl b -> Binding (D b) (Decls a) ->
+               Decls a
+\end{lstlisting}
+\caption{Terms inside Top-level Declarations}
+\label{fig:decls}
+\end{figure}
+
+
+
+Figure \ref{fig:decls} also defines both the type \lstinline{Decl a},
+which represents the non-empty parameter list and body of a top-level
+declaration, and the type \lstinline{Decls a}, which represents a term
+of type \lstinline{a} inside a list of zero or more top-level
+declarations. The \lstinline{DeclBase} and \lstinline{DeclCons}
+constructors re-use the \lstinline{L} type, since each binding
+corresponds to a lambda. Both constructors' types are analogous to
+that of the \lstinline{Lam} constructor, with the important
+distinction that the \lstinline{DeclBase} constructor maps a term
+inside a binding to a declaration. The \lstinline{DeclsBase}
+constructor represents a term with no declarations, while
+\lstinline{DeclsCons} adds a declaration of some type
+\lstinline{b}. This constructor takes a term of type \lstinline{b},
+representing the value of the declaration, along with a
+\lstinline{Decls a} inside a binding that binds a name for the
+declaration. The bound name has type \lstinline{D b} to indicate it is
+a declaration variable. As an example, the result of the
+lambda-lifting shown above is represented as follows:
+\begin{lstlisting}[mathescape]
+DeclsCons
+  (DeclCons $\nu$g. DeclBase $\nu$x.
+     App (Var g) (App (Var g) (Var x)))
+  ($\nu$F1.
+     DeclsCons
+       (DeclCons $\nu$f. DeclBase $\nu$g.
+          (App (Var f)
+               (App (DVar F1) (Var g)))))
+       ($\nu$F2. DeclsBase (DVar F2))
+\end{lstlisting}
+
+
+
+We present our approach to lambda-lifting in the remainder of this
+section. Section \ref{subsec:free-vars} first introduces a data type
+of lists of variables which occur free in terms, and briefly describes
+a subset relation and a union operation on these lists. These are
+needed to describe the free variables of the body of a
+lambda-abstraction in a statically-checkable manner. Section
+\ref{subsec:term-skeletons} next introduces a type of \emph{term
+  skeletons}, which are intermediate representations of the bodies of
+lambda-abstractions after lifting. Finally, Section
+\ref{subsec:lambda-lifting} gives the main function
+\lstinline{llBody}, which makes essential use of the continuation
+monad to move computations inside top-level declaration bindings.
+
+
+% %%%%%%%%%%%%%%%%%%%%%%%
+% %%%%% Sub-Section %%%%%
+% %%%%%%%%%%%%%%%%%%%%%%%
+% \subsection{Helper Functions: Adding and ``Peeling'' Lambdas}
+% \label{subsec:add-peel-lambdas}
+
+% In this section, we briefly describe two helper functions,
+% \lstinline{addLambdas} and \lstinline{peelLamdas}, that are used in
+% the definition of lambda-lifting. We examine these both because they
+% are relatively straightforward, but also because they illustrate, in
+% the small, the practice of verified programming in \ourlib.
+
+
+% The two functions, along with some helper definitions, are given in
+% Figure \ref{fig:add-peel-lambdas}. The the figure first defines the
+% type \lstinline{IsLType a}. This is the type of proofs that
+% \lstinline{a} is an \emph{\lstinline{L}-type}, meaning that it is of
+% the form \lstinline{L b} for some \lstinline{b}.  The next type,
+% \lstinline{LCtx ctx}, defines the proofs that all types listed in the
+% type context \lstinline{ctx} are \lstinline{L}-types. Elements of this
+% type, called \lstinline{L}-contexts, are also used below as a
+% term-level representation of type contexts of \lstinline{L}-types,
+% allowing computation at the term level on type contexts. After this is
+% the type function \lstinline{AddArrows ctx b}, which forms the curried
+% function type from the \lstinline{L}-types listed in \lstinline{ctx}
+% to the return type \lstinline{b}.
+
+
+% \begin{figure}[t]
+% \begin{lstlisting}[basicstyle=\ttfamily\scriptsize]
+% -- proof that a type starts with L
+% data IsLType a where IsLType :: IsLType (L a)
+
+% -- proof that ctx contains only L types
+% type LCtx ctx = MapCtx IsLType ctx
+
+% -- type function for adding arrows to a type
+% type family AddArrows ctx b
+% type instance AddArrows CtxNil b = b
+% type instance AddArrows (CtxCons ctx (L a)) b =
+%   AddArrows ctx (a -> b)
+
+% -- adding lambdas around a term (code omitted)
+% addLambdas :: LCtx lam_ctx ->
+%               (MapCtx Name lam_ctx -> DTerm a) ->
+%               DTerm (AddArrows lam_ctx a)
+% addLambdas EmptyMC k = k emptyMC
+% addLambdas (lam_ctx :> IsLType) k =
+%     addLambdas lam_ctx (\vs ->
+%         Lam $ nu $ \v -> k (vs :> v))
+
+% -- "peeling" lambdas off a term
+% data PeelRet ctx a where
+%   PeelRet :: LCtx lam_ctx ->
+%              Mb (ctx :++: lam_ctx) (DTerm a) ->
+%              PeelRet ctx (AddArrows lam_ctx a)
+% peelLambdas :: LCtx lam_ctx ->
+%                Mb (ctx :++: lam_ctx) (DTerm a) ->
+%                PeelRet ctx (AddArrows lam_ctx a)
+% peelLambdas lctx [nuQQ| Lam b |] =
+%     peelLambdas (lctx :> IsLType) (combineMb b)
+% peelLambdas lctx [nuQQ| b |] = PeelRet lctx b
+% \end{lstlisting}
+% \caption{Lambda-Lifting: Adding and ``Peeling'' Lambdas}
+% \label{fig:add-peel-lambdas}
+% \end{figure}
+
+
+% Using these types, the figure then defines our two functions.  The
+% first, \lstinline{addLambdas}, intuitively takes an
+% \lstinline{L}-context \lstinline{lam_ctx} along with a
+% \lstinline{DTerm a} and adds lambdas around the \lstinline{DTerm a}
+% for each type in the \lstinline{L}-context. To allow the
+% \lstinline{DTerm a} to depend on the variables bound by the new
+% lambdas, this argument is given as a function from lists of names to
+% \lstinline{DTerm a}. The result type uses \lstinline{AddArrows} to
+% indicate the nested function types of the nested lambdas that are
+% added. The function recurses on the \lstinline{L}-context, adding a
+% lambda for each type, moving the second argument (which specifies the
+% term) inside the binding on each recursive call.
+
+
+% FIXME HERE:
+% Note that \lstinline{addLambdas} has a very strong resemblance to
+% continuation-based programming.
+
+
+% The second function defined in Figure \ref{fig:add-peel-lambdas},
+% \lstinline{peelLambdas}, intuitively removes the leading lambdas from
+% a term. The function takes an \lstinline{L}-context of the types of
+% the lambdas removed so far, along with term being peeled, where the
+% latter is in a multi-binding whose last names correspond to the types
+% in the \lstinline{L}-context. When the term being peeled is a lambda,
+% the function simply recurses, and in the base case, the function
+% simply returns the \lstinline{L}-context of lambdas that have been
+% removed along with the body of the resulting term. This return type
+% requires an existential quantification over the \lstinline{L}-context
+% being returned, since this type context cannot be known until the data
+% is examined at run time. Representing existential type quantification
+% requires introducing a new type, here called
+% % spacing for \lstinline
+% \lstinline{PeelRet ctx a}, which existentially quantifies over
+% \lstinline{L}-context and otherwise captures the pair returned by
+% \lstinline{peelLambdas}.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%
+%%%%% Sub-Section %%%%%
+%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Free Variable Lists}
+\label{subsec:free-vars}
+
+In this section, we explain briefly how our approach represents and
+operates on lists of free variables. Figure \ref{fig:free-vars}
+defines the type \lstinline{FVList ctx fvs} of lists of names, one for
+each of the types in the type context \lstinline{fvs}. (Note that we
+use ``type context'' interchangeably with ``list of types'' in the
+below.) Each of these has a type of the form \lstinline{L a}, which we
+refer to as an \emph{\lstinline{L}-type}, and each name is inside a
+multi-binding for \lstinline{ctx}. Intuitively, this type is used for
+the lambda-bound variables that occur free in a term being
+lambda-lifted. The context \lstinline{ctx} lists the types of the
+names bound by lambdas which so far have been traversed by
+lambda-lifting. Note that nothing in this type requires the names to
+be bound in \lstinline{ctx}, since lambda-lifting can potentially be
+applied (using \lstinline{mbToplevel}) inside existing bindings. Also,
+as an aside, nothing in this type prevents duplicate free variables.
+
+% \begin{itemize}
+% \item lists of free vars are given by \lstinline{FVList ctx fvs} which
+%   is defined as \lstinline{MapCtx (MbLName ctx) fvs}
+
+% \item the type \lstinline{SubCtx} defines a (weak) notion of subset on
+%   these lists; represented as functions which might throw away names;
+%   a stronger notion would parameterize over some f, but not needed
+
+% \item getting the union of two fv lists
+%   \begin{itemize}
+%   \item give the type \lstinline{FVUnionRet}
+%   \item give the signature (not the code!) of \lstinline{fvUnion}
+%   \end{itemize}
+% \end{itemize}
+
+
+\begin{figure}[t]
+\begin{lstlisting}[basicstyle=\ttfamily\scriptsize]
+-- free variable lists and sub-context proofs
+data MbLName ctx a where
+  MbLName :: Mb ctx (Name (L a)) -> MbLName ctx (L a)
+type FVList ctx fvs = MapCtx (MbLName ctx) fvs
+type SubCtx ctx' ctx =
+  MapCtx Name ctx -> MapCtx Name ctx'
+
+-- the result type for fvUnion
+data FVUnionRet ctx fvs1 fvs2 where
+  FVUnionRet :: FVList ctx fvs ->
+                SubCtx fvs1 fvs -> SubCtx fvs2 fvs ->
+                FVUnionRet ctx fvs1 fvs2
+
+-- taking the union of two FVLists (code omitted)
+fvUnion :: FVList ctx fvs1 -> FVList ctx fvs2 ->
+           FVUnionRet ctx fvs1 fvs2
+\end{lstlisting}
+\caption{Lambda-Lifting: Free Variable Lists}
+\label{fig:free-vars}
+\end{figure}
+
+
+The figure also defines the type \lstinline{SubCtx ctx' ctx}, which
+intuitively states that \lstinline{ctx} contains all the types listed
+in \lstinline{ctx'}. This is represented by a function that maps names
+(not in multi-bindings) whose types are listed in \lstinline{ctx} to
+names whose types are listed in \lstinline{ctx'}, intuitively dropping
+the names whose types occur in \lstinline{ctx} but not
+\lstinline{ctx'}. Note that this type is not a ``proof'' in a strict
+sense, since such functions could conceivably add names to
+\lstinline{ctx'}, but the type is strong enough to suit our purposes
+here.
+
+
+Finally, Figure \ref{fig:free-vars} declares the function
+\lstinline{fvUnion} (code omitted) to take the union of two free
+variable lists.  The result type states that there is some type
+context \lstinline{fvs} such that the two input contexts
+\lstinline{fvs1} and \lstinline{fvs2} are sub-contexts of it. Because
+of the existential, stating this type requires introducing a new
+GADT, \lstinline{FVUnionRet}.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%
+%%%%% Sub-Section %%%%%
+%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Term Skeletons}
+\label{subsec:term-skeletons}
+
+In order to abstract over all the free variables in a term, our
+approach converts the body of each lambda-abstraction to a pair of a
+free variable list \lstinline{fvs} and an intermediate representation
+of the body that is guaranteed to have only the variables listed in
+\lstinline{fvs} free. This is a closedness condition; unfortunately,
+\ourlib\ cannot directly represent closedness, since a name in a
+multi-binding need not always be bound in that multi-binding.  Another
+way to state this difficulty is that, unlike most algebraic data
+types, names cannot be represented at the type level, so there is no
+way to construct a GADT which ensures that all names in term are in a
+particular list. There are three possible fixes to this problem: raise
+an error when an unexpected free name is encountered; add a closedness
+type, such as that used by Calcagno et al.~\cite{calcagno00}; or use a
+different strategy for closed names. We choose the third option here.
+
+
+Note that, although not being able to express closedness in \ourlib\
+is an issue, we do not feel that it is a major problem.  In this
+particular example, closedness is only needed for the lambda-bound
+variables, and we still use \ourlib\ names for declaration variables;
+this simplifies the definition of lambda-lifting, as it does not
+require lowering code to add declaration variables to the scope
+whenever a computation proceeds under a declaration binding.  Further,
+there are many situations where it is not especially problematic to
+choose the first option above and signal a runtime error when
+encountering non-closed names. This can in fact lead to simpler code,
+as the programmer need not structure the code in such a way that the
+type system can track closedness.  In addition, that
+authors believe both that it is possible to extend \ourlib\ to include
+a notion of closedness, and also that lambda-lifting can be rewritten
+to not even use an intermediate representation, thereby avoiding this
+problem altogether. These possibilities are discussed below in Section
+\ref{sec:conclusion}.
+
+\begin{figure}[t]
+\begin{lstlisting}[basicstyle=\ttfamily\scriptsize]
+-- typed deBruijn representation of term skeletons
+data STerm ctx a where
+  SWeaken :: SubCtx ctx1 ctx -> STerm ctx1 a ->
+             STerm ctx a
+  SVar :: InCtx ctx (L a) -> STerm ctx a
+  SDVar :: Name (D a) -> STerm ctx a
+  SApp :: STerm ctx (a -> b) -> STerm ctx a ->
+          STerm ctx b
+
+-- converting an STerm into a DTerm (code omitted)
+skelSubst :: STerm ctx a -> MapCtx Name ctx -> DTerm a
+
+-- a STerm with a list of free variables
+data FVSTerm ctx lctx a where
+  FVSTerm :: FVList ctx fvs ->
+             STerm (fvs :++: lctx) a ->
+             FVSTerm ctx lctx a
+
+-- separating the last bound variables (code omitted)
+fvSSepLVars :: MapCtx f lctx ->
+               FVSTerm (ctx :++: lctx) CtxNil a ->
+               FVSTerm ctx lctx a
+\end{lstlisting}
+\caption{Lambda-Lifting: Term Skeletons}
+\label{fig:term-skeletons}
+\end{figure}
+
+
+% \begin{figure}[t]
+% \begin{lstlisting}[basicstyle=\ttfamily\scriptsize]
+% -- typed deBruijn representation of closed terms
+% data STerm ctx a where
+%   SWeaken :: SubCtx ctx1 ctx -> STerm ctx1 a ->
+%               STerm ctx a
+%   SVar :: InCtx ctx (L a) -> STerm ctx a
+%   SDVar :: Name (D a) -> STerm ctx a
+%   SApp :: STerm ctx (a -> b) -> STerm ctx a ->
+%            STerm ctx b
+
+% -- substituting a STerm to get a DTerm
+% dbSubst :: STerm ctx a -> MapCtx Name ctx -> DTerm a
+% dbSubst (SWeaken f db) names = dbSubst db $ f names
+% dbSubst (SVar inCtx) names =
+%   Var $ ctxLookup inCtx names
+% dbSubst (SDVar dVar) _ = DVar dVar
+% dbSubst (SApp db1 db2) names =
+%   App (dbSubst db1 names) (dbSubst db2 names)
+
+% -- a STerm with a list of free variables
+% data FVSTerm ctx lctx a where
+%   FVSTerm :: FVList ctx fvs ->
+%               STerm (fvs :++: lctx) a ->
+%               FVSTerm ctx lctx a
+
+% -- separating the last bound variables (code omitted)
+% fvSSepLVars :: LCtx lctx ->
+%                 FVSTerm (ctx :++: lctx) CtxNil a ->
+%                 FVSTerm ctx lctx a
+% \end{lstlisting}
+% \caption{Lambda-Lifting: Closed Terms}
+% \label{fig:closed-terms}
+% \end{figure}
+
+
+% \begin{itemize}
+% \item define and explain \lstinline{STerm}: need it to define
+%   closedness!
+% \item define and explain \lstinline{dbSubst}: converts a
+%   \lstinline{STerm} to a \lstinline{DTerm}
+% \item \lstinline{FVSTerm}
+% \item explain \lstinline{fvSSepLVars} (do not give the code!)
+% \end{itemize}
+
+
+Figure \ref{fig:term-skeletons} defines the type
+\lstinline{STerm ctx a} of ``skeletons'' of the bodies of
+lambda-abstractions. These represent terms of type \lstinline{a} with
+no lambda-abstractions, whose free (lambda-bound) variables are all
+listed in \lstinline{ctx}. We use a typed deBruijn representation for
+lambda-bound variables to achieve this, representing each name with an
+\lstinline{InCtx} proof. We also include the constructor
+\lstinline{SWeaken}, which takes a term in a sub-context of
+\lstinline{ctx} and weakens it to a term in context \lstinline{ctx}.
+Otherwise this type mirrors \lstinline{DTerm}, without
+lambda-abstractions. Note that we still use \ourlib\ names for
+declaration variables, yielding a simpler type than if typed deBruijn
+indices were used for these names as well.
+
+
+Term skeletons can be converted back to the \lstinline{DTerm}
+representation simply by substituting names for the free
+(lambda-bound) variables. This is done with the function
+\lstinline{skelSubst} (code omitted), which is similar to the function
+\lstinline{msubst} of Section \ref{subsec:small-examples}.
+
+The type \lstinline{FVSTerm ctx lctx a} intuitively represents a list
+of free variables along with a term skeleton of type \lstinline{a}
+using only the variables in this list. The free variables are given in
+two pieces: the first argument to the \lstinline{FVSTerm} constructor
+is an \lstinline{FVList} giving names in multi-bindings for
+\lstinline{ctx}; but the skeleton can also contain names whose types
+are listed in \lstinline{lctx}. Intuitively, this is because the
+skeleton is the result of lambda-lifting a sequence of nested
+lambda-abstractions that introduced variables for the types in
+\lstinline{lctx}. Thus, when the skeleton is converted back to a
+\lstinline{DTerm}, lambda-abstractions for these variables will be
+added unconditionally. The remaining variables will then be abstracted
+as well.
+
+Finally, Figure \ref{fig:term-skeletons} also declares the function
+\lstinline{fvSSepLVars} (code omitted). This function intuitively
+takes a skeleton and its free variable list and separates out the last
+variables bound in the current context. This is represented at the
+type level as an operation on \lstinline{FVSTerm} which moves the
+suffix of the \lstinline{ctx} type argument to be the \lstinline{lctx}
+type argument. This function is called just before the body
+of a lambda-abstraction is turned back into a lambda-abstraction,
+in order to abstract the free variables first and then form the
+lambda-abstractions found in the original term.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%
+%%%%% Sub-Section %%%%%
+%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Lambda-Lifting in the Continuation Monad}
+\label{subsec:lambda-lifting}
+
+We now come to the final result, which uses all the above to perform
+lambda-lifting. The key difficulty is in formulating the case for
+lambdas, which intuitively requires adding top-level declarations
+around the term currently being transformed. Stated differently,
+lambda-lifting proceeds by structural recursion on the body of a
+lambda-abstraction, but when it comes to another lambda, it must stop
+the current computation, add a top-level declaration for that lambda,
+and then resume the current computation inside the binding for the new
+top-level declaration. To do this, we use the continuation monad
+\lstinline{Cont} along with Felleisen's $\mathcal{C}$ operator
+\cite{felleisen87}.  The $\mathcal{C}$ operator allows us to capture
+(and abort) the current continuation, which represents a skeleton term
+being computed for the current point in the code. We can then add a
+top-level declaration, for the lambda being lifted, and resume the
+current continuation inside that top-level declaration.  This requires
+fixing the result type of the \lstinline{Cont} operator to be
+\lstinline{Decls b} for some \lstinline{b}, so we can apply the
+\lstinline{DeclsCons} constructor outside the current continuation.
+
+
+\begin{figure}[t]
+\vspace{-5pt}
+\begin{lstlisting}[basicstyle=\ttfamily\scriptsize]
+-- llBody return type
+type LLBodyRet b ctx a =
+  Cont (Decls b) (FVSTerm ctx CtxNil a)
+
+-- proofs that a context contains only L types
+data IsLType a where IsLType :: IsLType (L a)
+type LCtx ctx = MapCtx IsLType ctx
+
+-- lambda-lift the body of a function
+llBody :: LCtx ctx -> Mb ctx (Term a) ->
+          LLBodyRet b ctx a
+llBody ctx [nuQQ| Var v |] =
+  return $ FVSTerm (EmptyMC :> MbLName v)
+                   (SVar InCtxBase)
+
+llBody ctx [nuQQ| App t1 t2 |] = do
+  FVSTerm fvs1 db1 <- llBody ctx t1
+  FVSTerm fvs2 db2 <- llBody ctx t2
+  FVUnionRet names sub1 sub2
+      <- return $ fvUnion fvs1 fvs2
+  return $ FVSTerm names $ SApp (SWeaken sub1 db1)
+                                  (SWeaken sub2 db2)
+
+llBody ctx [nuQQ| Lam b |] = do
+  PeelRet lctx body <- return $ peelLambdas b
+  llret <- llBody (ctxAppend ctx lctx) body
+  FVSTerm fvs db <- return $ fvSSepLVars lctx llret
+  cont $ \k ->
+    DeclsCons (freeParams (fvsToLCtx fvs) $ \vs1 ->
+               boundParams lctx $ \vs2 ->
+               skelSubst db (ctxAppend vs1 vs2))
+      $ nu $ \d ->
+               k (FVSTerm fvs
+                    (skelAppMultiNames (SDVar d) fvs))
+
+-- the top-level lambda-lifting function
+lambdaLift :: DTerm a -> Decls a
+lambdaLift t =
+  runCont (llBody EmptyMC (emptyMb t))
+          (\(FVSTerm fvs db) ->
+            let vs = ctxMap (\(MbLName mbn) ->
+                              elimEmptyMb mbn) fvs
+            in DeclsBase (skelSubst db vs))
+\end{lstlisting}
+\caption{Lambda-Lifting: The Main Function}
+\label{fig:lambda-lifting}
+\end{figure} % $
+
+
+The code for lambda-lifting is given in Figure
+\ref{fig:lambda-lifting}. It first defines the return type
+\lstinline{LLBodyRet b ctx a} as a continuation monad with result type
+\lstinline{Decls a} and whose return type is an unmapped term of type
+\lstinline{a} in \lstinline{ctx}. Next is an auxiliary definition of
+the type \lstinline{LCtx ctx} of type contexts containing only types
+of the form \lstinline{L a}, called \lstinline{L}-contexts.
+The figure then defines the main function,
+\lstinline{llBody}, for lambda-lifting the bodies of lambdas.  This
+function takes an auxiliary first argument, where it collects the
+types of the lambda-bound variables it sees as it enters inside the
+bodies of lambda-abstractions. The case for a normal variable returns
+that variable as a skeleton, whose free variable list contains only
+that variable.
+
+
+The case for applications is slightly more complex. It first computes
+the result for the function and the argument, and then unions the two
+resulting free variable lists. The call to \lstinline{fvUnion} returns
+the combined free variable list, along with \lstinline{SubCtx} proofs
+that can be used to weaken the skeletons to use this same free
+variable list.
+
+
+The main complexity is in the case for lambdas, which proceeds as
+follows. First it calls the auxiliary function \lstinline{peelLambdas}
+(type and code are omitted), which intuitively removes all the leading
+lambda-abstractions from its argument, returning a non-empty
+\lstinline{L}-context for the types of the variables whose lambdas
+were removed, as well as the revealed body of the lambda-abstractions.
+Next, \lstinline{llBody} lambda-lifts the body, yielding a free
+variable list and a skeleton term (inside the monad).  After this,
+\lstinline{fvSSepLVars} is called to separate the free variables into
+free variables bound by the lambda-abstractions that were removed and
+those that are free in these lambda-abstractions.  Finally,
+Felleisen's $\mathcal{C}$ operator, which is called \lstinline{cont}
+in the \lstinline{Cont} monad, is invoked to move the current
+computation inside a new binding for a declaration variable.  This new
+binding is created using the \lstinline{DeclsCons} constructor.  The
+first argument to \lstinline{DeclsCons}, which is the declaration
+being bound, is created by calling the functions
+\lstinline{freeParams} and \lstinline{boundParams} (type and code are
+omitted) to build a declaration with parameter bindings corresponding
+first to the free variables and then to the bound variables around the
+lambda-lifted body, and then by calling \lstinline{skelSubst} to
+convert the body back to a \lstinline{DTerm} using these
+lambda-abstracted variables.  The second argument of
+\lstinline{DeclsCons} is then created by resuming the current
+continuation inside a call to \lstinline{nu}, using the newly bound
+declaration variable \lstinline{d} applied to the free variables used
+in the declaration as the result passed to this continuation.
+
+
+Finally, Figure \ref{fig:lambda-lifting} defines
+\lstinline{lambdaLift}. This function calls \lstinline{llBody} on the
+input term (using \lstinline{emptyMb} to coerce it to a multi-binding
+with zero names) to create a monadic computation. It then runs the
+resulting computation, passing a top-level continuation which does two
+things: it takes the free variable list returned by the computation
+and removes all the multi-bindings for the empty context using
+\lstinline{elimEmptyMb}; and it then uses this variable list to pass
+to \lstinline{skelSubst}, in order to convert the returned skeleton
+back to a \lstinline{DTerm}.
+
+
+
+% %%%%%%%%%%%%%%%%%%%%%%%
+% %%%%% Sub-Section %%%%%
+% %%%%%%%%%%%%%%%%%%%%%%%
+% \subsection{Helper Functions and Definitions}
+% \label{subsec:helpers}
+
+% We briefly introduce a number of helper datatypes and functions used
+% in the code discussed below. These are given in Figure
+% \ref{fig:helpers}. The first declaration in the figure gives the type
+% \lstinline{Ctx ctx}, which reifies type contexts at the
+% term level to allow functions to manipulate them.
+% The next declaration declares the function \lstinline{mkBoundName}
+% which uses these reified type contexts to create a
+% multi-binding whose body contains the last name in the
+% multi-binding. The code is omitted for reasons of brevity,
+% but it essentially iterates over the \lstinline{Ctx} argument,
+% calling \lstinline{nu} each time to bind names and then
+% calling \lstinline{combineMb} to coalesce the multi-bindings.
+
+
+% \begin{figure}
+% \begin{lstlisting}[basicstyle=\ttfamily\scriptsize]
+% -- a reification of a context at the term level
+% type Ctx ctx = MapCtx Tag ctx
+
+% -- return the last name in a context (code omitted)
+% mkBoundName :: Ctx ctx ->
+%                Mb (CtxCons ctx a) (Name a)
+
+% -- proof that a type starts with L
+% data IsLType a where IsLType :: IsLType (L a)
+
+% -- proof that ctx contains only L types
+% type LCtx ctx = MapCtx IsLType ctx
+
+% -- appending an LCtx to a Ctx (code omitted)
+% ctxAppendLCtx :: Ctx ctx -> LCtx lctx ->
+%                  Ctx (ctx :++: lctx)
+
+% -- L name in a multi-binding
+% data MbLName ctx a where
+%   MbLName :: (Mb ctx (Name (L a))) ->
+%              MbLName ctx (L a)
+
+% -- free names with their types
+% data FVCtx ctx where
+%   FVCtx :: MapCtx (MbLName ctx) fvs -> FVCtx ctx
+
+% -- get the free vars of a term (code omitted)
+% freeVars :: Mb ctx (DTerm a) -> FVCtx ctx
+
+% -- type function for adding arrows to a type
+% type family AddArrows ctx b
+% type instance AddArrows CtxNil b = b
+% type instance AddArrows (CtxCons ctx (L a)) b =
+%   AddArrows ctx (a -> b)
+
+% -- GADT for the return value of peelLambdas
+% data PeelRet ctx a where
+%   PeelRet :: LCtx lctx ->
+%              Mb (ctx :++: lctx) (DTerm a) ->
+%              PeelRet ctx (AddArrows lctx a)
+
+% -- "peeling" the lambdas off of a term
+% peelLambdas :: LCtx lctx ->
+%                Mb (ctx :++: lctx) (DTerm a) ->
+%                PeelRet ctx (AddArrows lctx a)
+% peelLambdas lctx [nuQQ| Lam b |] =
+%     peelLambdas (lctx :> IsLType)
+%                 (combineMb b)
+% peelLambdas lctx [nuQQ| b |] =
+%     PeelRet lctx b
+% \end{lstlisting}
+% \caption{Helper Functions and Definitions}
+% \label{fig:helpers}
+% \end{figure}
+
+
+% The next declarations deal with the type \lstinline{LCtx ctx} of
+% reified type contexts whose elements are guaranteed to be
+% \lstinline{L}-types, meaning they have the form \lstinline{L b} for
+% some \lstinline{b}.  The first of these defines the type
+% \lstinline{IsLType a} of proofs that the type \lstinline{a} is an
+% \lstinline{L}-type. The second gives the type \lstinline{LCtx ctx} of
+% proofs that the type context \lstinline{ctx} is composed entirely of
+% \lstinline{L}-types. The third declaration gives the type signature of
+% the function \lstinline{ctxAppendLCtx} (code omitted for brevity),
+% which appends an \lstinline{LCtx lctx} to the end of a reified context
+% object of type \lstinline{Ctx ctx}. This yields a reified context
+% object of type \lstinline{Ctx (ctx :++: lctx)}.
+
+
+% The next three declaraions in Figure \ref{fig:helpers} deal with the
+% free variables of \lstinline{DTerm}s.  The type
+% \lstinline{MbLName ctx a} represents a name of type \lstinline{a}
+% inside a multi-binding for \lstinline{ctx}, where \lstinline{a} is
+% constrained to be an \lstinline{L}-type. This type is useful in
+% defining the next type, \lstinline{FVCtx ctx}, as a \lstinline{MapCtx}
+% of \lstinline{MbLName ctx} over an existentially quantified type
+% context \lstinline{fvs}. This latter type intuitively represents a
+% free variable context as a list of names inside multi-bindings for
+% \lstinline{ctx}, where the types of these names are given by
+% \lstinline{fvs}.  The function \lstinline{freeVars} then maps a
+% \lstinline{DTerm} in a multi-binding for \lstinline{ctx} to a free
+% variable context of type \lstinline{FVCtx ctx}. We omit the definition
+% of \lstinline{freeVars} for space reasons, as it is relatively
+% straightforward using some of the techniques already developed in
+% Section \ref{subsec:small-examples}.
+
+% The remainder of Figure \ref{fig:helpers} defines the function
+% \lstinline{peelLambdas}. This function intuitively removes all the
+% \lstinline{Lam} constructors inside a multi-binding.  The result is a
+% multi-binding with possibly more bound names for the lambdas that were
+% removed. To define the type of this function, we first define the
+% type-level function \lstinline{AddArrows ctx a} as a Haskell type
+% family. This type function intuitvely takes every type
+% \lstinline{L bi} in \lstinline{ctx} and adds \lstinline{bi ->} to the
+% front of \lstinline{a}. The next declaration in Figure
+% \ref{fig:helpers} gives the return type \lstinline{PeelRet ctx a} of
+% \lstinline{peelLambdas}. This type constrains \lstinline{a} to be of
+% the form \lstinline{AddArrows lctx a} for some type context
+% \lstinline{lctx}. It then contains an \lstinline{LCtx} proof that all
+% types in \lstinline{lctx} are \lstinline{L}-types, along with a
+% \lstinline{DTerm a} --- that is, a \lstinline{DTerm} whose type has
+% all the arrows given by \lstinline{lctx} peeled away --- in a
+% multi-binding for both \lstinline{ctx} and \lstinline{lctx}.  Finally,
+% \lstinline{peelLambdas} takes an \lstinline{LCtx} proof,
+% \lstinline{lctx}, for the types alread peeled along with a term in a
+% multi-binding and tests if that term is a lambda. If so, it recurses,
+% adding the bound type to \lstinline{lctx} and using
+% \lstinline{combineMb} to coalesce the outer bindings and the inner
+% binding for the body of the lambda. Otherwise \lstinline{peelLambdas}
+% returns its two arguments as a \lstinline{PeelRet}.
+
+
+
+% %%%%%%%%%%%%%%%%%%%%%%%
+% %%%%% Sub-Section %%%%%
+% %%%%%%%%%%%%%%%%%%%%%%%
+% \subsection{Binding Monads}
+% \label{subsec:binding-monads}
+
+% In this section we introduce a novel concept called a \emph{binding
+%   monad}.  It is essentially an adaptation of the concept of a
+% multi-binding to the setting of monads. Note that we use this concept
+% entirely as a device for structuring the lambda-lifting code; although
+% we do believe this is a deep semantic concept, complete with
+% extensions of the monad laws for name-bindings, we leave this
+% possibility as future work for this document.
+
+% The interface of a binding monad, denoted by the
+% % comment to prevent meta-q from wrapping the \lstinline
+% \lstinline{MonadBind m} typeclass, is given in Figure
+% \ref{fig:binding-monads}.  This typeclass indicates that \lstinline{m}
+% is a type-level function of two arguments, a type context
+% \lstinline{ctx} and a type \lstinline{a}. Intuitively, a value of type
+% \lstinline{m ctx a} is a computation of type \lstinline{a} relative to
+% a binding context \lstinline{ctx}.  Although the intent is that
+% \lstinline{m ctx} should be a monad for any \lstinline{ctx}, it is not
+% currently possible to write this requirement in GHC. The two central
+% operations of a binding monad are \lstinline{nuM} and
+% \lstinline{strengthenM}. The former is similar to \lstinline{nu}, in
+% that it generates a fresh name and passes the name to its argument,
+% \lstinline{f}. The key difference is that \lstinline{nuM} commutes the
+% monad \lstinline{m ctx} outside of the binding, yielding a binding
+% inside the monad.  The latter operation, \lstinline{strengthenM},
+% takes a monadic computation in a given binding context and
+% \emph{strengthens} it, returning a monadic computation with the last
+% type in the binding context removed. The \lstinline{MonadBind}
+% typeclass also contains the \lstinline{nuM'} operation, which combines
+% these two operations, binding a fresh name and weakening the type
+% context to contain the type of this name in the body of the binding.
+
+
+% \begin{figure}
+% \begin{lstlisting}[basicstyle=\ttfamily\scriptsize]
+% -- binding monad type class
+% class MonadBind m where
+%   nuM :: (Name a -> m ctx b) ->
+%          m ctx (Binding a b)
+%   strengthenM :: m (CtxCons ctx a) b -> m ctx b
+%   nuM' :: (Name a -> m (CtxCons ctx a) b) ->
+%           m ctx (Binding a b)
+%   nuM' f = nuM (strengthenM . f)
+
+% -- a trivial instance: identity on the 2nd type
+% newtype Proj2 ctx a = Proj2 { runProj2 :: a }
+% instance MonadBind Proj2 where
+%     nuM f = Proj2 $ nu $ runProj2 . f
+%     strengthenM (Proj2 m) = Proj2 m
+% \end{lstlisting}
+% \caption{Binding Monads}
+% \label{fig:binding-monads}
+% \end{figure}
+
+
+% Figure \ref{fig:binding-monads} also gives a trivial binding monad,
+% \lstinline{Proj2}, which projects to its second type argument
+% \lstinline{a}. For any type context \lstinline{ctx}, we have that
+% \lstinline{Proj2 ctx} is just the identity monad. The \lstinline{nuM}
+% operation just calls \lstinline{nu}, while \lstinline{strengthenM} is
+% the identity.
+
+
+% A more interesting binding monad, \lstinline{BindM}, is given in
+% Figure \ref{fig:bindm}. This monad uses \emph{name mappings},
+% represented with the \lstinline{NameMap ctx} type, which intuitively
+% maps a single name in a multi-binding for \lstinline{ctx} to a name of
+% the same type not in a multi-binding.  A list of name mappings can
+% then be used to map any number of names inside multi-bindings to names
+% outside of multi-bindings, using the \lstinline{mapName} function.
+% (The code for \lstinline{mapName} is omitted for brevity, but it is
+% essentially an association list lookup.) Name mappings can be lowered
+% into an extended context using \lstinline{nameMapLower}, which
+% essentially calls the \lstinline{mbLower} operation that was defined
+% as a demonstration of \lstinline{mbToplevel} in
+% Section~\ref{sec:matching-on-bindings}. Finally, any list of names
+% inside empty multi-bindings can be mapped to themselves (outside the
+% empty multi-bindings) using \lstinline{nilCtxMapApp} (code omitted),
+% which essentially folds over the list of names and uses
+% \lstinline{elimEmptyMb} to remove the names from their empty
+% multi-bindings.
+
+
+% \begin{figure}
+% \begin{lstlisting}[basicstyle=\ttfamily\scriptsize]
+% -- a mapping from a name-in-context to a name
+% data NameMap ctx where
+%   NameMap :: (Mb ctx (Name a)) ->
+%              Name a -> NameMap ctx
+
+% -- map a name (code omitted)
+% mapName :: [NameMap ctx] -> Mb ctx (Name a) ->
+%            Maybe (Name a)
+
+% -- lower a mapping into another binding
+% nameMapLower :: NameMap ctx ->
+%                  NameMap (CtxCons ctx b)
+% nameMapLower (NameMap mbN n) =
+%   NameMap (mbLower mbN) n
+
+% -- append mappings for names in CtxNil (code omitted)
+% nilCtxMapApp :: FVCtx CtxNil -> [NameMap CtxNil] ->
+%                 [NameMap CtxNil]
+
+% -- the BindM monad (essentially a Reader)
+% newtype BindM ctx a =
+%   BindM { runBindM :: [NameMap ctx] -> a }
+
+% -- standard Reader instances (not shown)
+% instance Monad (BindM ctx)
+% instance MonadReader [NameMap ctx] (BindM ctx)
+
+% -- instance declaration for BindM
+% instance MonadBind BindM where
+%   nuM f = BindM $ \nmap ->
+%     nu $ \n -> runBindM (f n) nmap
+%   strengthenM m = BindM $ \nmap ->
+%     runBindM m (map nameMapLower nmap)
+
+% -- perform a computation with an extended name map
+% withExtMap :: Mb ctx (Name a) -> Name a ->
+%               BindM ctx b -> BindM ctx b
+% withExtMap mbN n m =
+%   local (\nmap -> NameMap mbN n : nmap) m
+% \end{lstlisting} % $
+% \caption{The \lstinline{BindM} Binding Monad}
+% \label{fig:bindm}
+% \end{figure}
+
+
+% % \begin{figure}
+% % \begin{lstlisting}[basicstyle=\ttfamily\scriptsize]
+% % -- a mapping from a name-in-context to a name
+% % data NameMap ctx where
+% %   NameMap :: (Mb ctx (Name a)) ->
+% %              Name a -> NameMap ctx
+
+% % -- map a name according to a list of mappings
+% % mapName :: [NameMap ctx] ->
+% %            Mb ctx (Name a) -> Maybe (Name a)
+% % mapName [] n = Nothing
+% % mapName (NameMap bound free : rest) n =
+% %     case mapName1 (mbCmpName bound n) free of
+% %       Nothing -> mapName rest n
+% %       Just ret -> Just ret
+
+% % -- lower a mapping into another binding
+% % nameMapLower :: NameMap ctx ->
+% %                  NameMap (CtxCons ctx b)
+% % nameMapLower (NameMap mbN n) =
+% %   NameMap (mbLower mbN) n
+% % \end{lstlisting}
+% % \caption{Name Mappings}
+% % \label{fig:name-mappings}
+% % \end{figure}
+
+
+% Using name mappings, we can then define \lstinline{BindM ctx} as the
+% standard \lstinline{Reader} monad, using type
+% \lstinline{[NameCtx ctx]} as the input type. (We do not directly use
+% the \lstinline{Reader} definition to reduce the number of constructors
+% used.)  We use the standard implementations of the monad operations,
+% given in the \lstinline{Monad} typeclass, as well as the
+% \lstinline{ask} and \lstinline{local} operations of the
+% \lstinline{MonadReader} typeclass. (The code is omitted.)  To
+% implement \lstinline{nuM} applied to \lstinline{f}, we create a
+% function over name mapping list \lstinline{nmap}, to form the element
+% of the \lstinline{BindM} monad, and then use the \lstinline{nu}
+% operator to pass a fresh name to \lstinline{f} as the body of this
+% function. The result of the call to \lstinline{f} is then in the
+% \lstinline{BindM ctx} monad, and so is applied to the \lstinline{nmap}
+% input argument. The \lstinline{strengthenM} operation is then defined
+% by applying \lstinline{nameMapLower} to the name mappings in the input
+% list, which removes any mapping for the last name bound in the current
+% binding context. Note that neither of these operations can be defined
+% using the standard \lstinline{Reader} operations,
+% \lstinline{strengthenM} because it changes the \lstinline{ctx} type
+% argument to \lstinline{BindM} (and thus returns into a different
+% monad), and \lstinline{nuM} because there is no way to commute the
+% binding inside the \lstinline{BindM ctx} monad without running the
+% monad.
+
+
+% Figure \ref{fig:bindm} also defines a useful helper function,
+% \lstinline{withExtMap}. This function takes a name \lstinline{mbN} in
+% a multi-binding, another name \lstinline{n} of the same type outside
+% of the multi-binding, and a monadic computation \lstinline{m}. It then
+% performs the computation \lstinline{m} using the extension of the
+% current name mapping list to map \lstinline{mbN} to \lstinline{n}.
+% This is done using the \lstinline{local} monadic operator of
+% \lstinline{BindM}.
+
+
+% %%%%%%%%%%%%%%%%%%%%%%%
+% %%%%% Sub-Section %%%%%
+% %%%%%%%%%%%%%%%%%%%%%%%
+% \subsection{Unmapped Terms}
+% \label{subsec:unmapped-terms}
+
+
+% In this section we introduce the concept of an \emph{unmapped term}.
+% This is a term that is waiting to have its bound variables mapped to
+% fresh variables, thereby effectively converting it from a
+% term-in-multi-binding to a term not in a multi-binding.  Unmapped
+% terms are represented using the type \lstinline{MTerm ctx a}, which is
+% defined in Figure \ref{fig:unmapped-terms} as a \lstinline{DTerm a}
+% computation inside \lstinline{BindM ctx}. An unmapped term can be
+% mapped using the \lstinline{mapMTerm} fuction. This function runs
+% \lstinline{BindM} monad and passes it the empty name mapping list,
+% which does not map any bound names.
+
+
+% \begin{figure}[t]
+% \begin{lstlisting}[basicstyle=\ttfamily\scriptsize]
+% -- the MTerm type
+% type MTerm ctx a = BindM ctx (DTerm a)
+
+% -- perform the mapping
+% mapMTerm :: MTerm ctx a -> DTerm a
+% mapMTerm mt = runBindM mt []
+
+% -- a Var that needs mapping
+% mVar :: Mb ctx (Name (L a)) -> MTerm ctx a
+% mVar v =
+%   do nmap <- ask
+%      return $ case mapName nmap v of
+%                 Just n -> Var n
+%                 Nothing -> error $ "unexpected var!"
+
+% -- a DVar that needs mapping
+% mDVar :: Mb ctx (Name (D a)) -> MTerm ctx a
+% mDVar d =
+%   case mbNameBoundP d of
+%     Left _ -> error "unexpected definition var!"
+%     Right n -> return $ DVar n
+
+% -- an App that needs mapping
+% mApp :: MTerm ctx (a -> b) -> MTerm ctx a ->
+%         MTerm ctx b
+% mApp mt1 mt2 =
+%   mt1 >>= \t1 -> mt2 >>= \t2 -> return (App t1 t2)
+
+% -- apply mApp to zero or more names (code omitted)
+% mApplyToNames :: MTerm ctx (AddArrows lctx a) ->
+%                  MapCtx (MbLName ctx) lctx ->
+%                  MTerm ctx a
+
+% -- lambda abstract over a bound name
+% mLam :: Mb ctx (Name (L a)) -> MTerm ctx b ->
+%         MTerm ctx (a -> b)
+% mLam mbN mt =
+%   nuM (\n -> withExtMap mbN n mt) >>= (return . Lam)
+
+% -- call mLam multiple times (code omitted)
+% mLamMulti :: MapCtx (MbLName ctx) fvs ->
+%              MTerm ctx a ->
+%              MTerm ctx (AddArrows fvs a)
+
+% -- lambda abstract and remove the tail of ctx
+% mLam' :: Ctx ctx -> MTerm (CtxCons ctx (L b)) a ->
+%          MTerm ctx (b -> a)
+% mLam' ctx mt =
+%   nuM' (\n -> withExtMap (mkBoundName ctx) n mt) >>=
+%   (return . Lam)
+
+% -- call mLam' multiple times (code omitted)
+% mLamMulti' :: Ctx ctx -> LCtx lctx ->
+%               MTerm (ctx :++: lctx) a ->
+%               MTerm ctx (AddArrows lctx a)
+
+% -- map the given free vars in an MTerm to themselves
+% mTermWithFVs :: FVCtx CtxNil -> MTerm CtxNil a ->
+%                 MTerm CtxNil a
+% mTermWithFVs fvs = local (nilCtxMapApp fvs)
+% \end{lstlisting} % $
+% \caption{Unmapped Terms}
+% \label{fig:unmapped-terms}
+% \end{figure}
+
+
+% Figure \ref{fig:unmapped-terms} then gives a number of functions to
+% build unmapped terms.  The \lstinline{mVar} function takes a
+% lambda-bound name in a multi-binding and intuitively builds the term
+% resulting from mapping that name and then applying the \lstinline{Var}
+% constructor.  To perform the mapping, \lstinline{mVar} uses the
+% \lstinline{ask} monad operator to retrieve the current name mapping
+% list, and then it calls \lstinline{mapName} to map the
+% name-in-multi-binding.  If the mapping is successful, the result is
+% \lstinline{Var} applied to the result; otherwise an error is
+% signaled. The \lstinline{mDVar} is similar, except it does not
+% expect declaration-bound variables to be bound, so it uses
+% \lstinline{mbBoundNameP} to attempt to lift the name out of the
+% multi-binding, applying \lstinline{DVar} if successful and signaling
+% an error otherwise. \lstinline{mApp} applies an unmapped term to
+% another by using the \lstinline{>>=} operator to get the mapped
+% results; \lstinline{mApplyToNames} (code not shown) calls
+% \lstinline{mApp} zero or more times to apply a function to a list
+% of (unmapped) variables.
+
+
+% To handle lambda-abstractions requires the \lstinline{nuM} operator of
+% our binding monad. The \lstinline{mLam} function takes a name
+% \lstinline{mbN} of type \lstinline{L a} inside a multi-binding, along
+% with an unmapped term of type \lstinline{b}, and forms an unmapped
+% term \lstinline{mt} of type \lstinline{a -> b}. It does this by first
+% calling \lstinline{nuM} to bind a fresh name \lstinline{n} of type
+% \lstinline{L a}. Inside this binding, it applies
+% \lstinline{withExtMap} in order to perform the computation
+% \lstinline{mt} using an extension of the current name mapping list to
+% map \lstinline{mbN} to \lstinline{n}. The \lstinline{mLam} function
+% then uses the monadic bind \lstinline{>>=} to apply the
+% \lstinline{Lam} constructor to the result. The \lstinline{mLamMulti}
+% function (code omitted for brevity) calls \lstinline{mLam} multiple
+% times, using a list of names of types \lstinline{fvs} in
+% multi-bindings and yielding an unmapped term of type
+% \lstinline{AddArrows fvs} applied to the input type.
+
+% The \lstinline{mLam'} function is similar except that it uses
+% \lstinline{nuM'}. Thus it takes an unmapped term in the extended
+% context \lstinline{CtxCons ctx b} and returns an unmapped term in the
+% context \lstinline{ctx}.  This function also binds a fresh name of
+% type \lstinline{b} to which to map the last name, of type
+% \lstinline{b}, in the extended context. To construct the extended
+% mapping, \lstinline{mLam'} calls the \lstinline{mkBoundName} function
+% declared in Figure \ref{fig:helpers}.  This requires an argument of
+% type \lstinline{Ctx ctx}, which in fact causes the main lambda-lifting
+% functions given below in Section \ref{subsec:lambda-lifting} to all
+% require a \lstinline{Ctx} argument. The \lstinline{mLamMulti'}
+% function calls \lstinline{mLam'} multiple times, requiring only an
+% \lstinline{LCtx} argument to specify the extension to the current
+% context.
+
+% The final operation of Figure \ref{fig:unmapped-terms},
+% \lstinline{mTermWithFVs}, takes a list of free variables
+% \lstinline{fvs} and an \lstinline{MTerm} \lstinline{mt} and
+% intuitively creates an unmapped term that passes identity mappings for
+% \lstinline{fvs} to \lstinline{mt}. To achieve this, the
+% \lstinline{local} monadic operation is used to append mappings for
+% \lstinline{fvs} to the current name mapping list.  The append
+% operation is performed by the \lstinline{nilCtxMapApp} function
+% declared in Figure \ref{fig:bindm}.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%     Section        %%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Inside \ourlib}
+\label{sec:implementation}
+
+We now describe the implementation of \ourlib. The key declarations
+are given in Figure \ref{fig:implementation}; the remaining
+operations are straightforward, and so are omitted for brevity.
+Internally, the type \lstinline{Name a} is represented as an integer,
+while the type \lstinline{Mb ctx b} is a pair of a list of integers,
+corresponding to the names bound by the multi-binding, along with the
+body \lstinline{b}. To generate fresh names, we define a function
+\lstinline{fresh_name} which increments a global pointer,
+\lstinline{counter}, and returns the current value. The \lstinline{nu}
+operation then calls \lstinline{fresh_name} to create a fresh name and
+then passes it to its argument \lstinline{f}. It then uses Haskell's
+\lstinline{seq} operator to ensure that the fresh name is evaluated
+strictly.
+
+
+\begin{figure}[t]
+\begin{lstlisting}[basicstyle=\ttfamily\scriptsize]
+-- name and multi-binding types
+newtype Name a = MkName Int
+data Mb ctx b  = MkMb [Int] b
+
+-- the counter for fresh names
+counter :: IORef Int
+{-# NOINLINE counter #-}
+counter = unsafePerformIO (newIORef 0)
+
+-- return a fresh integer
+fresh_name :: a -> Int
+fresh_name a = unsafePerformIO $ do 
+  dummyRef <- newIORef a
+  x <- readIORef counter
+  writeIORef counter (x+1)
+  return x
+
+-- implementation of nu
+nu f = let n = fresh_name f in
+       n `seq` MkMb [n] (f (MkName n))
+
+-- implementation of cmpName
+cmpName (MkName n1) (MkName n2) =
+  if n1 == n2 then
+    Just $ unsafeCoerce Refl
+  else
+    Nothing
+
+-- create an InCtx of length n (code omitted)
+unsafeLookupCtx :: Int -> InCtx ctx a
+
+-- implementation of mbNameBoundP
+mbNameBoundP (MkMb names (MkName n)) =
+  case (elemIndex n names) of
+    Nothing -> Right (MkName n)
+    Just i -> Left (unsafeLookupCtx i)
+
+-- super combinator type
+newtype SuperComb a = SuperComb { unSuperComb :: a }
+
+-- test if all names are bound (code omitted)
+isSuperComb :: TH.Exp -> Bool
+
+-- safely introduce the SuperComb constructor
+superComb :: TH.ExpQ -> TH.ExpQ
+superComb m = do
+  e <- m
+  let msg = "not a super combinator:\n\t"
+  if isSuperComb e
+    then return (TH.AppE (TH.ConE 'SuperComb) e)
+    else fail (msg ++ TH.pprint e)
+
+-- implementation of mbToplevel
+mbToplevel f (MkMb names i) =
+  MkMb names (unSuperComb f i)
+\end{lstlisting}
+\caption{Implementation of \ourlib}
+\label{fig:implementation}
+\end{figure}
+
+There is a little bit of trickery required to get \lstinline{nu} to
+work correctly in the face of compiler optimizations, because of the
+uses of \lstinline{unsafePerformIO}.  First, the
+\lstinline{fresh_name} function takes a dummy argument \lstinline{a}
+and allocates a pointer to it. This is to make sure the monadic
+computation looks like it depends on \lstinline{a}, so that the
+compiler does not decide the monadic computation is a constant that can be
+lifted out of the body of \lstinline{fresh_name}.  Also,
+\lstinline{counter} is marked with the \lstinline{NOINLINE} pragma so
+the compiler cannot accidentally inline the code for creating
+\lstinline{counter}, causing a new pointer to be allocated for each
+use. The \lstinline{fresh_name} function does not require this pragma,
+however, because its monadic computation is intended to be performed
+each time it is called. Note that \lstinline{nu} does allow common
+subexpression elimination (CSE) because, if two calls to
+\lstinline{nu} use the same argument \lstinline{f}, then it is ok for
+them to use the same integer for their bound names, as we are ensuring
+$\alpha$-Equivalence.
+
+
+The \lstinline{cmpName} operation is relatively straightforward, using
+\lstinline{==} to compare two names, represented by integers, for
+equality.  If the names are equal, however, there is no guarantee from
+the Haskell type system that their associated types are equal.  Since
+each name always has at most a single type, however, we know that the
+two types must be the same, and we thus call the Haskell cast function
+\lstinline{unsafeCoerce} to cast our proof \lstinline{Refl} of type
+equality to a proof of equality of the types associated with the
+names. The \lstinline{mbNameBoundP} function compares a name with the
+names bound in a multi-binding using \lstinline{elemIndex} to get the
+position of the name in the list. If the name is not in the list we
+know it can safely be removed from the multi-binding, so it is
+returned, otherwise \lstinline{unsafeLookupCtx} is called (code
+omitted), which contains a similar call to \lstinline{unsafeCoerce} to
+cast an \lstinline{InCtx} proof to the right type.
+
+
+As discussed in Section \ref{subsec:mbtoplevel}, the
+\lstinline{mbToplevel} operator uses the type \lstinline{SuperComb a}
+type to ensure safety, by only allowing super combinators to be
+applied under multi-bindings. This type is isomorphic to
+\lstinline{a}, with the \lstinline{SuperComb} constructor applied, and
+\lstinline{mbToplevel} simply removes this constructor from its first
+input and applies the resulting function to the body of the
+$\nu$-abstraction in the second input. To ensure that the elements of
+this type are always super combinators, \ourlib\ hides this data type
+(as with \lstinline{Name} and \lstinline{Mb}), thus only allowing
+super combinators to be created by the \lstinline{superComb}
+function. This function creates a monadic computation, inside Template
+Haskell's \lstinline{Q} monad, which first calls the
+\lstinline{isSuperComb} function to determine if the argument is in
+fact a super combinator. The code for this latter function is omitted,
+but it essentially traverses the input and determines that all Haskell
+variables that occur are either global or are bound inside the input
+term.  (This is done by checking that all constructors for the
+Template Haskell \lstinline{Name} type are either \lstinline{NameG} or
+\lstinline{NameU}.) If this check passes, then the
+\lstinline{superComb} function simply wraps the input expression in an
+application of the (hidden) \lstinline{SuperComb} constructor;
+otherwise a compile-time error is signaled.
+
+To implement pattern-matching under bindings, the quasi-quoter
+\lstinline{nuQQ} contains a slightly simplified parser for Haskell
+patterns, transforming them as follows. First, the whole pattern is
+wrapped in an application of the \lstinline{MkMb} constructor applied
+to a fresh variable name, say \lstinline{names}. Then each variable
+\lstinline{x} in the pattern is replaced by the \emph{view pattern}
+\lstinline{(MkMb names -> x)}. Recall that a view pattern
+\lstinline{(f -> P)} first applies \lstinline{f} to its argument and
+then matches against \lstinline{P}. In our case, the argument to each
+of the view patterns is the corresponding subterm of the entire
+$\nu$-pattern's argument. Thus \lstinline{nuQQ} generates a pattern
+that distributes the multi-binding context of its argument's
+constructor into the subterms. The user cannot directly refer to any
+of the subterms outside of their multi-bindings, since such values are
+never even bound to a name. Furthermore, each subterm's multi-binding
+is also constrained to have the same phantom type argument as the
+multi-binding being matched.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%     Section        %%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Proving Safety}
+\label{sec:safety}
+
+In this section, we argue that the multi-bindings implemented by
+\ourlib\ satisfy Freshness, $\alpha$-Equivalence, Scoping, and Typing.
+These properties ensure in turn that \lstinline{nu} is effectively
+pure and that the unsafe casts in the \ourlib\ implementation are
+always safe. The former holds by $\alpha$-Equivalence, which ensures
+that the user cannot observe the imperative actions of \lstinline{nu}
+other than the fact that different bindings yield unequal names (as
+required by Freshness). The latter holds by Typing, since the only
+unsafe casts in the \ourlib\ implementation are used to prove that two
+types for the same name are equal.
+
+To demonstrate that these properties hold, we first introduce the
+\emph{$\alpha$-well-formed} terms, an extension of Scoping that is
+needed to prove $\alpha$-Equivalence. We then prove two lemmas, that
+the $\alpha$-well-formed terms are closed under reduction and that
+$\alpha$-equivalence of \emph{$\alpha$-well-formed} terms is a
+bisimulation for reduction; we use a call-by-need notion of reduction
+to model Haskell's lazy evaluation. Scoping and $\alpha$-Equivalence
+follow immediately. Freshness is a consequence of these lemmas
+because, although it is possible to reduce to a term that uses the
+same name for nested bindings, this cannot be \emph{observed} by a
+program. This is because any reduction on such a term is equivalent to
+a reduction on an $\alpha$-equivalent term where the inner binding
+uses a different name. The fourth property, Typing, then follows by a
+straightforward proof that the typing judgment is also preserved under
+$\alpha$-equivalence. For reasons of brevity, however, we do not give
+a type system nor prove this fact here but it is a straightforward
+proof using standard techniques. We also omit proofs of lemmas for
+brevity, but these are all by straightforward induction on terms.
+
+
+We begin by formalizing an operational semantics for Haskell with
+\ourlib, given in Figure \ref{fig:opsem}. This is based on the
+call-by-need semantics of Ariola et al.~\cite{ariola95}. The top half
+of the figure defines five syntactic classes: the operators \op, the
+terms $M$, the values $V$, the \letname-contexts $L$, and the
+evaluation contexts $E$. The operators include (abbreviated names for)
+the \lstinline{nu}, \lstinline{cmpName}, \lstinline{mbToplevel}, and
+\lstinline{mbNameBoundP} operators of \ourlib, along with a $\case[]$
+construct for pattern-matching. The \mbTop\ operator always
+includes a top-level function $F$, which is simply a closed term
+(having no free names or variables), while the $\case[]$ operator is
+always annotated with a list of constructors over which it
+matches. (Normally the constructors are determined by the type of the
+scrutinee, but we are avoiding giving a type system here, for
+brevity.) Note that, for brevity, we are actually formalizing only a
+simplified version of \ourlib\ with only single bindings instead of
+multi-bindings; the results generalize easily to the case with
+multi-bindings. Thus we do not include the operators related to
+multi-bindings.
+
+
+\begin{figure}
+\centering
+\begin{small}
+\begin{math}
+\begin{array}{@{}c@{}}
+
+%%% Syntax
+\begin{array}{@{}l@{\hspace{5pt}}c@{\hspace{5pt}}l@{}}
+\op & ::= & \nuOp \bor \cmp \bor \boundP \bor \mbTop\;F \bor \case
+%\emp \bor \elimEmp
+%\\
+%& & \borstar \sep \bor \comb \bor \case
+\\
+
+M & ::= & x
+\begin{array}[t]{@{}l@{}}
+\bor c \bor n \bor \op \bor M\;M \bor \lamabsnot{x}{M} \bor \nuabs{n}{M}\\
+\bor \lete{x}{M}{M}
+\end{array}
+\\
+
+V & ::= & \lamabsnot{x}{M} \bor n \bor c\;\vec{M} \bor \nuabs{n}{M}
+\\
+
+L & ::= & [] \bor \lete{x}{M}{L}
+\\
+
+E & ::= & []
+\begin{array}[t]{@{}l@{}}
+\bor E\;M \bor \lete{x}{M}{E} \bor \lete{x}{E}{\tctxt{E}{x}}\\
+\bor \op\;E \bor \cmp\;n\;E \bor \boundP\;(\nuabs{n}{E}) \bor \case\;(\nuabs{n}{E})
+\end{array}
+
+\end{array}
+
+\\ \\
+%%% Semantics
+
+\begin{array}{@{}rcl@{}}
+
+%% context rule
+\tctxt{E}{M} & \rrto & \tctxt{E}{M'}\;\text{(for $M\rrto M'$)}
+
+\\[5pt]
+
+%% operator rules
+\nuOp\;V & \rrto & \nuabs{n}{V\;n}\;\text{(for fresh $n$)}\\
+
+\cmp\;n\;n & \rrto & \True\\
+
+\cmp\;n\;n' & \rrto & \False\;\text{(for $n\not=n'$)}\\
+
+\boundP\;(\nuabs{n}{\tctxt{L}{n}}) & \rrto & \Nothing\\
+
+\boundP\;(\nuabs{n}{\tctxt{L}{n'}}) & \rrto & \Just\;n'\;\text{(for $n\not=n'$)}\\
+
+\mbTop\;F\;(\nuabs{n}{M}) & \rrto & \nuabs{n}{F\;M}\\
+
+\case\;(c_i\;\vec{M})\;\vec{N} & \rrto & N_i\;\vec{M}\\
+
+\case\;(\nuabs{n}{\tctxt{L}{c_i\;\vec{M}}})\;\vec{N} & \rrto & N_i\;(\nuabs{n}{\tctxt{L}{\vec{M}}})
+
+\\[5pt]
+
+%% Ariola rules
+(\lamabsnot{x}{M})\;N & \rrto & \lete{x}{N}{M}\\
+
+\lete{x}{V}{\tctxt{E}{x}} & \rrto & \lete{x}{V}{\tctxt{E}{V}}\\
+
+(\lete{x}{M}{A})\;N & \rrto & \lete{x}{M}{A\;N}\\[2pt]
+
+\multicolumn{3}{l}{
+\lete{x}{(\lete{y}{M}{A})}{\tctxt{E}{x}}
+}
+\\
+ & \rrto & \lete{y}{M}{\lete{x}{A}{\tctxt{E}{x}}}
+
+\end{array}
+
+\end{array}
+\end{math}
+\end{small}
+\caption{Operational Semantics of Haskell with \ourlib}
+\label{fig:opsem}
+\end{figure}
+
+
+The terms include variables $x$, constructors $c$, names $n$,
+operators, applications $M\;M$, $\lambda$-abstractions
+$\lamabsnot{x}{M}$, $\nu$-abstractions $\nuabs{n}{M}$, and
+\letname-expressions. The \letname-expressions are included to model
+lazy environments, where the value for a variable $x$, bound by a
+\letname, is only substituted for $x$ when the value of $x$ is needed.
+This is discussed in more detail by Ariola et al.~\cite{ariola95}.
+Terms are considered equal up to renaming of bound variables $x$ but
+not of bound names $n$, just as in the actual implementation of
+\ourlib. We write this equality as $\equiv$. We also write $\equiva$
+for equality up to renaming of bound variables and names, where
+``$\alpha$-equivalence'' in the below (without the capital ``E'')
+refers to this latter relation.  The values include the
+terms that represent valid results of computations.
+
+The remaining two syntactic classes define two classes of \emph{term
+  contexts}. These represent terms with a single hole, written $[]$. If
+$C$ is a term context, we write $\tctxt{C}{M}$ for the result of
+replacing (in a non-capture-avoiding manner) the hole in $C$ with $M$.
+The \letname-contexts $L$ are holes in the bodies of zero or more
+\letname-expressions. These essentially represent environments.  The
+evaluation contexts are used to define where evaluation is allowed to
+take place: at the top of a term; to the left of an application; in
+the body of a \letname-expression; in the value bound by a
+\letname-expression when that value is needed in the body; in the
+argument of an operator, or the second argument of the two-argument
+operator \cmp; or inside a $\nu$-abstraction that is the argument to
+\boundP\ or \case. We also define the \emph{answers} as the set of
+terms $\tctxt{L}{V}$ of values in the bodies of zero or more
+\letname-expressions. We write $A$ for answers.
+
+
+The bottom half of Figure \ref{fig:opsem} give reduction rules for
+evaluating terms. These are split into: the first rule, which closes
+reduction under evaluation contexts; the rules for operators; and the
+rules for functions and environments given by Ariola et
+al.~\cite{ariola95}. Most of the rules for operators are
+straightforward.  \nuOp\ creates a binding with a fresh name. \cmp\
+returns \True\ or \False\ (which are constructors that are assumed to
+exist), where we are again simplifying \ourlib\ in a non-essential way
+by omitting type equality proofs. Similarly, \boundP\ returns either
+\Nothing\ or $\Just\;n$ for the name $n$ in the body of the argument.
+Note that \letname-bindings are not moved outside of
+$\nu$-abstractions, since they could depend on the name bound by the $\nu$, so
+the name in the argument matched by \boundP\ could be in the body of
+zero or \letname-expressions, which is represented by the use of the
+\letname-context $L$. $\mbTop\;F$ applies $F$ to the body of a
+$\nu$-abstraction, while \case\ matches on constructor applications,
+applying the $(i+1)$th argument (which represents the $i$th case of
+the pattern-match) to the matched subterms for the $i$th constructor.
+Note that \case[] can also match constructors inside $\nu$-abstractions,
+so again we include the \letname-context $L$ inside the
+$\nu$-abstraction in the argument.
+
+The last rules in the figure turn an application into a body
+in an environment, substitute a bound value in an environment for a
+variable when the value is needed, and commute environments upwards in
+a term as needed. The interested reader can consult the work of Ariola
+et al.~\cite{ariola95} for more discussion of these rules.
+
+
+We implicitly assume in the below that all occurrences of operators in
+terms are \emph{fully applied}, meaning that they occur, possibly
+inside an environment, applied to an argument; i.e., they have the
+form form $\tctxt{L}{\op}\;M$ for some $M$. The \cmp\ operator is
+binary, so must have two arguments, meaning occurrences have the form
+$\tctxt{L_1}{\tctxt{L_2}{\cmp}\;M_1}\;M_2$.  We also define the
+\emph{normal forms} as the terms that do not reduce, and the
+\emph{ill-formed terms} as those that contain an application of a name
+or a $\nu$-abstraction. We can then prove the following two lemmas,
+which state that our semantics behaves how we want it to and that it
+does not have too few or two many cases.
+
+\begin{lemma}[Normal Forms]
+  Any closed, fully applied, normal form $M$ is either an answer or is
+  an ill-formed term.
+\end{lemma}
+
+\begin{lemma}[Determinism]
+  For any $M$, there is at most one $M'$ (up to $\equiva$) such that
+  $M\rrto M'$.
+\end{lemma}
+
+
+We would like to prove that reduction is insensitive to
+$\alpha$-equivalence, as discussed above. The one rule that is
+problematic, however, is substitution (the second rule from Ariola et
+al.), as substitution is not capture-avoiding for names. As an
+example, consider the following term:
+\[
+\lete{x}{n}{\boundP\;(\nuabs{n}{x})}
+\]
+Reducing this term twice substitutes $n$ for $x$ and then reduces the
+application of \boundP\ to \True. If we $\alpha$-convert the
+$\nu$-abstraction, however, the term reduces to \False.
+To avoid this situtation, we must ensure that no substitution can
+ever cause a name to be substituted under a binder for it.
+In order to prevent this, however, we must also preclude
+$\nu$-abstractions from occurring inside $\lambda$-abstractions,
+or we could have the term
+\[
+(\lamabsnot{x}{\boundP\;(\nuabs{n}{x})})\;n
+\]
+which reduces to the above in one step.  Thus we make the following
+definition:
+
+\begin{definition}
+  $M$ is \emph{$\alpha$-well-formed}, written \WFa{M}, iff:
+  \begin{enumerate}
+  \item All variables $x$ and names $n$ occur bound;
+  \item No $\nu$-abstractions occur inside $\lambda$-abstractions; and
+  \item If we fully substitute $M$ then we do not substitute
+    a name $n$ into a $\nu$-abstraction for $n$, where
+    \emph{fully substituting} $M$ means repeatedly replacing occurrences
+    of $x$ by $N$ in the bodies of $\letname\;x=N$ bindings.
+  \end{enumerate}
+\end{definition}
+
+
+Using this definition, we can now prove the main lemmas of this
+section:
+
+\begin{lemma}[Preservation of \WFa{}]
+  If $M\rrto M'$ for $\WFa{M}$ then $\WFa{M'}$.
+\end{lemma}
+
+\begin{lemma}[Bisimulation for \WFa{}]
+  If $M\equiva N$ for $\WFa{M}$ and $\WFa{N}$, and if $M\rrto M'$,
+  then $N\rrto N'$ for some $N'\equiva M'$.
+\end{lemma}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%     Section        %%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Related Work}
+\label{sec:related-work}
+
+There are a number of approaches to representing name-bindings in the
+literature. The oldest approach, deBruijn indices \cite{debruijn72},
+represents variables as the number of binders between the occurrence
+and the binding of the variable. A key benefit of deBruijn indices is
+that they are conceptually simple. Operations like substitution that
+move terms inside other bindings, however, require subtle index math
+to update the number used by bound variables. This index math is often
+a source of bugs, as it is difficult to get right.  Although it is
+possible to extend deBruijn indices to associate type information with
+bound names \cite{sheard05,atkey09}, this approach becomes an encoding
+of ``term of type $A$ in context $\Gamma$'' instead of just ``term of
+type $A$''. This approach requires heavy use of functions to
+manipulate the context $\Gamma$, which effectively perform the same
+index math as untyped deBruijn indices but on proof objects.  This
+makes programs that manipulate bindings more awkward to write.
+
+The Locally Nameless approach of McBride and McKinna \cite{mcbride04}
+uses deBruijn indices only for bound names, using a different type
+(such as strings) for free variables. McBride and McKinna show that
+the index math required by deBruijn indices can be limited to two
+operations, \lstinline{abstract} and \lstinline{instantiate}, for
+Locally Nameless representations, thereby greatly easing the burden of
+the programmer. The authors do not know of any research that has
+associated types with names under the Locally Nameless approach, but
+such an approach would either be similar to typed deBruijn indices,
+requiring a context $\Gamma$ for the free variables of a term, or it
+would not constrain the free variables of a term in any way.
+
+
+There has been much research into representations based on
+Higher-Order Abstract Syntax (HOAS). This terminology, coined by
+Pfenning and Elliott \cite{pe88}, refers to the use of functions in the
+host language to represent name-bindings. The benefits of HOAS are
+that functional languages already ensure $\alpha$-Equivalence,
+Scoping, and Typing for functions, and so these properties are ``for
+free'' in HOAS.  Substitution is also for free, using function
+application in the host language.  In a sense, however, HOAS does not
+give Freshness, because variables in the host language cannot be
+considered unequal. This leads to one of the main drawbacks of HOAS,
+that variables cannot be compared. The other main drawback is that it
+is impossible to pattern-match under host language functions, since
+the body of a function can depend on its input.
+
+A number of techniques have been investigated for getting around the
+limitations of HOAS. Meijer and Hutton \cite{meijer-hutton95} showed
+how to define operations over HOAS while simultaneously defining their
+inverses.  Fegaras and Sheard \cite{fegaras96} showed that an inverse
+is not needed if name-binding functions are guaranteed to be
+parametric (meaning that they do not examine their arguments) and if a
+free variable constructor is added to datatypes being examined.
+Washburn and Weirich \cite{washburn03} built on this approach, showing
+how to use parametric polymorphism to ensure that functions meant to
+represent name-bindings are parametric. This is difficult to use in
+practice, however, because it requires operations on HOAS encodings to
+have complex, higher-order types.  Further, these approaches can only
+write operations which are folds, which cannot express operations like
+equality tests or getting the free variables of a term.
+
+A number of approaches have also shown how to add support for HOAS
+into the host language itself. These include $\alpha$-Prolog
+\cite{miller91}, Twelf \cite{PfS98}, the modal calculus of
+Sch\"{u}rmann et al.~\cite{schurmann01}, Bedwyr \cite{baelde07},
+Beluga \cite{pientka08}, and Delphin \cite{poswolsky08}. These are all
+special-purpose languages, however, and it is not clear how to use the
+approaches in more mainstream languages like Haskell.
+
+
+%FIXME: alpha-Caml
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%     Section        %%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Conclusion}
+\label{sec:conclusion}
+
+In this paper, we have described a novel library, \ourlib, for
+higher-order encodings. Higher-order encodings make it possible to
+define adequate encodings of typed programming languages, thus
+eliminating whole classes of bugs in compilers, interpreters, and
+other language processing tools. Specifically, functions over adequate
+encodings of typed programming languages are \emph{statically
+  guaranteed} to preserve well-typedness of the programs being
+manipulated. \ourlib\ represents name-bindings as pairs of the name
+being bound and the body of the binding, thus allowing
+pattern-matching on the bodies of bindings to be easily defined in the
+host language. In order to ensure Freshness, $\alpha$-Equivalence,
+Scoping, and Typing, \ourlib\ hides this representation, exposing a
+set of combinators to allow the user to manipulate name-bindings.
+We then show how \ourlib\ can be used for more complex examples,
+such as lambda-lifting.
+
+
+A natural question to ask at this point is: how much farther can we
+push \ourlib? There are a number of things it still cannot do. As one
+example, the CNIC language (which was the motivation for \ourlib)
+contains an elimination form for name-bindings.  This elimination form
+allows a user to remove a name-binding from around its body by
+supplying a fresh name to replace the bound name. Ensuring that the
+user-supplied name is fresh seems to require support in the Haskell
+type system that cannot easily be described by a library.
+
+
+Another useful feature of \ourlib\ would be to add support for
+closedness, as discussed in Section \ref{subsec:term-skeletons}.
+Since functions can be applied inside name-bindings, their inputs
+could always potentially have free variables; this is captured by the
+type of \lstinline{mbNameBoundP}, which always has the possibility
+that a name can be removed from a multi-binding because it is not
+bound there. It would be useful to have a closedness type, to indicate
+statically that a value does not have free names.  This would make
+functions that cannot handle free names, such as an interpreter (which
+does not know what to do with a free variable), a little nicer to
+write; currently, such functions must include a case for free
+variables which simply reports an error.  Further, closedness types
+would allow imperative operations to occur inside name-bindings, if we
+require all writes to pointers to store only closed values to prevent
+scope extrusion \cite{calcagno00}.  The fact that imperative
+operations cannot occur inside name-bindings in the current \ourlib\
+can be expressed by the fact that the \lstinline{IO} and
+\lstinline{Mb} type constructors do not commute. It is well known that
+modal type systems are useful for expressing closedness, but this
+would also require special support from the Haskell type system. A
+different approach might be to use environment classifiers
+\cite{taha03}, which would not require any modifications to Haskell.
+
+
+\acks This work was supported in part by NSF award CCF-0964520. Any
+opinions, findings and conclusions or recommendations expressed in
+this material are those of the authors and do not necessarily
+reflect those of the National Science Foundation.  The authors would
+like to acknowledge the PL group at KU for lots of great feedback
+after reading a draft of this paper in their reading group. We would
+also like to thank Stephanie Weirich for helpful discussions and Simon
+Peyton-Jones for suggesting the lambda-lifting example.
+
+
+\bibliographystyle{abbrvnat}
+\bibliography{bib.bib}
+
+
+\end{document}
+
+% Local Variables:
+% fill-column: 70
+% End:

@@ -1,0 +1,126 @@
+
+%%%
+%%% general things
+%%%
+
+%% spacing commands
+\newcommand{\figfill}[1][14pt]{\hspace{#1}\hfill}
+\newlength{\indlen}
+\setlength{\indlen}{8pt}
+\newcommand{\ind}[1]{\hspace{#1\indlen}}
+
+
+%%%
+%%% theorem environments
+%%%
+
+\newtheorem{lemma}{Lemma}
+\newtheorem{theorem}{Theorem}
+\newtheorem{definition}{Definition}
+
+
+%%%
+%%% proof environment
+%%%
+\newenvironment{proof}
+               {\hspace{-1\parindent}\textbf{Proof:}}
+               {\hfill $\square$}
+
+
+%%%
+%%% for writing grammars
+%%%
+
+% bor stands for bar-or ("or" written with vertical bars), for grammars
+% \borstar has no spacing before it, for use at the beginning of a line
+\newcommand{\borspacing}{\hspace{.5em}}
+%\newcommand{\borstar}{\protect\rule[-2pt]{1pt}{1em}\hspace{1pt}\protect\rule[-2pt]{1pt}{1em}\borspacing}
+\newcommand{\borstar}{\protect\rule[-2pt]{1pt}{1em}\borspacing}
+\newcommand{\bor}{\borspacing\borstar}
+
+
+%%%
+%%% for repetitive commands that just set the font face
+%%%
+
+\newcommand{\definermcommand}[2]{\newcommand{#1}{\ensuremath{\mathrm{#2}}}}
+\newcommand{\definesfcommand}[2]{\newcommand{#1}{\ensuremath{\mathsf{#2}}}}
+\newcommand{\definebfcommand}[2]{\newcommand{#1}{\ensuremath{\mathbf{#2}}}}
+
+
+%%%
+%%% for lambda-calculus encoding
+%%%
+
+\newcommand{\lcenc}[2]{\llbracket #2 \rrbracket^{#1}_{\lambda}}
+\newcommand{\lcenct}[1]{\llbracket #1 \rrbracket_{\lambda}}
+\definesfcommand{\basetype}{b}
+\definesfcommand{\basenu}{b_{\nu}}
+\definesfcommand{\Dom}{Dom}
+\definesfcommand{\Ran}{Ran}
+
+
+%%%
+%%% Stuff for formalizing the operational semantics
+%%%
+
+% "essential" operators
+\newcommand{\op}{\ensuremath{op}}
+\definesfcommand{\cmp}{cmp}
+\definesfcommand{\nuOp}{nu}
+\definesfcommand{\mbTop}{top}
+\definesfcommand{\boundP}{boundP}
+\newcommand{\case}[1][\vec{c}]{\ensuremath{\mathsf{case}_{#1}}}
+
+% multi-binding operators
+\definesfcommand{\emp}{emp}
+\definesfcommand{\elimEmp}{elimEmp}
+\definesfcommand{\comb}{comb}
+\definesfcommand{\sep}{sep}
+
+% necessary constructors for multi-bindings...
+\definesfcommand{\Just}{Just}
+\definesfcommand{\Nothing}{Nothing}
+\definesfcommand{\Refl}{Refl}
+\definesfcommand{\ICBase}{ICBase}
+\definesfcommand{\ICCons}{ICCons}
+
+% necessary constructors for single bindings
+\definesfcommand{\True}{True}
+\definesfcommand{\False}{False}
+
+% term constructs
+\newcommand{\ctorApp}[2]{#1(#2)}
+\newcommand{\opApp}[2]{#1(#2)}
+\newcommand{\lamabs}[3]{\lambda #1:#2.\, #3}
+\newcommand{\lamabsnot}[2]{\lambda #1.\,#2}
+\newcommand{\nuabs}[2]{\nu #1.\,#2}
+\definesfcommand{\letname}{let}
+\newcommand{\lete}[3]{\letname\;#1 = #2\;\mathsf{in}\;#3}
+\newcommand{\leteArr}[3]{\begin{array}{@{}l@{}}\letname\;#1 = #2\;\mathsf{in}\\#3\end{array}}
+
+% term contexts
+\newcommand{\tctxt}[2]{\ensuremath{#1[#2]}}
+
+
+% rewriting and equality
+\newcommand{\rrto}{\longrightarrow}
+\newcommand{\equiva}{\equiv_{\alpha}}
+
+% alpha-well-formedness
+\newcommand{\WFa}[1]{\ensuremath{\mathrm{WF}_\alpha(#1)}}
+
+% type constructs; should we omit these?
+% \definesfcommand{\Name}{Name}
+% \newcommand{\To}{\Rightarrow}
+% \newcommand{\tlamabs}[2]{\Lambda #1.\,#2}
+% \newcommand{\tapp}[2]{#1[#2]}
+% \newcommand{\lamgamma}[2][\Gamma]{\lambda #1\,.\,#2}
+% \newcommand{\nuabsnot}[2]{\nu\,#1\,.\,#2}
+% \newcommand{\ctype}[2]{\bigcirc_{#1} #2}
+
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "paper"
+%%% End: 
