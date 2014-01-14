@@ -63,6 +63,11 @@ append :: MapC f c1 -> MapC f c2 -> MapC f (c1 :++: c2)
 append mc Nil = mc
 append mc1 (mc2 :> x) = append mc1 mc2 :> x
 
+-- | Append two 'MapC' vectors.
+appendWithPf :: Append c1 c2 c -> MapC f c1 -> MapC f c2 -> MapC f c
+appendWithPf Append_Base mc Nil = mc
+appendWithPf (Append_Step app) mc1 (mc2 :> x) = appendWithPf app mc1 mc2 :> x
+
 -- | Make an 'Append' proof from any 'MapC' vector for the second
 -- argument of the append.
 mkAppend :: MapC f c2 -> Append c1 c2 (c1 :++: c2)

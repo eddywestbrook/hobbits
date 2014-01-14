@@ -1,6 +1,6 @@
 {-# LANGUAGE Rank2Types #-}
 
-module Data.Binding.Hobbits.InternalUtilities where
+module Data.Binding.Hobbits.Internal.Utilities where
 
 import qualified Data.Generics as SYB
 

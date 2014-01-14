@@ -37,6 +37,17 @@ import qualified Language.Haskell.TH.Syntax as TH
 
 
 
+{-|
+  The type @Cl a@ represents a closed term of type @a@,
+  i.e., an expression of type @a@ with no free (Haskell) variables.
+  Since this cannot be checked directly in the Haskell type system,
+  the @Cl@ data type is hidden, and the user can only create
+  closed terms using Template Haskell, through the 'mkClosed'
+  operator.
+-}
+newtype Cl a = Cl { unCl :: a }
+
+
 
 -- | @cl@ is used with Template Haskell quotations to create closed terms of
 -- type 'Cl'. A quoted expression is closed if all of the names occuring in it

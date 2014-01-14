@@ -1,55 +1,70 @@
-{-# LANGUAGE GADTs, DeriveDataTypeable #-}
+{-# LANGUAGE GADTs, DeriveDataTypeable, FlexibleInstances, TypeOperators #-}
 
 -- |
--- Module      : Data.Binding.Hobbits.Internal
--- Copyright   : (c) 2011 Edwin Westbrook, Nicolas Frisby, and Paul Brauner
+-- Module      : Data.Binding.Hobbits.Internal.Name
+-- Copyright   : (c) 2014 Edwin Westbrook, Nicolas Frisby, and Paul Brauner
 --
 -- License     : BSD3
 --
--- Maintainer  : emw4@rice.edu
+-- Maintainer  : westbrook@kestrel.edu
 -- Stability   : experimental
 -- Portability : GHC
 --
--- This module is internal to the Hobbits library, and should not be used
--- directly.
+-- This module defines the type @'Name' a@ as a wrapper around a fresh
+-- integer. Note that, in order to ensure adequacy of the Hobbits
+-- name-binding approach, this representation is hidden from the user,
+-- and so this file should never be imported directly by the user.
+--
 
-module Data.Binding.Hobbits.Internal where
+module Data.Binding.Hobbits.Internal.Name where
 
+import Data.List
+import Data.Functor.Constant
 import Data.Typeable
-import Data.Type.List
+import Data.Type.Equality ((:=:))
 import Unsafe.Coerce (unsafeCoerce)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import System.IO.Unsafe (unsafePerformIO)
 
+import Data.Type.List
+import Data.Type.List.Map
+
+
 -- | A @Name a@ is a bound name that is associated with type @a@.
 newtype Name a = MkName Int deriving (Typeable, Eq)
 
-{-|
-  An @Mb ctx b@ is a multi-binding that binds exactly one name for each
-  type in @ctx@, where @ctx@ has the form @'Nil' ':>' t1 ':>' ... ':>' tn@.
--}
-data Mb ctx b
-    = MkMbFun (MapC Proxy ctx) (MapC Name ctx -> b)
-    | MkMbPair (MapC Name ctx) b
-    deriving Typeable
+instance Show (Name a) where
+  showsPrec _ (MkName n) = showChar '#' . shows n . showChar '#'
 
-{-
-instance Typeable a => Typeable (Mb ctx a) where
-    typeOf (MkMb _ x) = mkTyConApp (mkTyCon "Mb")
-                          [mkTyConApp (mkTyCon "Nil") [], typeOf x]
--}
+instance Show (MapC Name c) where
+    show mapc = "[" ++ (concat $ intersperse "," $ mapCToList $
+                        mapC (Constant . show) mapc) ++ "]"
 
+
+-------------------------------------------------------------------------------
+-- Externally visible operators
+-------------------------------------------------------------------------------
 
 {-|
-  The type @Cl a@ represents a closed term of type @a@,
-  i.e., an expression of type @a@ with no free (Haskell) variables.
-  Since this cannot be checked directly in the Haskell type system,
-  the @Cl@ data type is hidden, and the user can only create
-  closed terms using Template Haskell, through the 'mkClosed'
-  operator.
--}
-newtype Cl a = Cl { unCl :: a }
+  @cmpName n m@ compares names @n@ and @m@ of types @Name a@ and @Name b@,
+  respectively. When they are equal, @Some e@ is returned for @e@ a proof
+  of type @a :=: b@ that their types are equal. Otherwise, @None@ is returned.
 
+  For example:
+
+> nu $ \n -> nu $ \m -> cmpName n n   ==   nu $ \n -> nu $ \m -> Some Refl
+> nu $ \n -> nu $ \m -> cmpName n m   ==   nu $ \n -> nu $ \m -> None
+-}
+cmpName :: Name a -> Name b -> Maybe (a :=: b)
+cmpName (MkName n1) (MkName n2)
+  | n1 == n2 = Just $ unsafeCoerce Refl
+  | otherwise = Nothing
+
+
+
+-------------------------------------------------------------------------------
+-- Hidden, unsafe operators
+-------------------------------------------------------------------------------
 
 
 -- building an arbitrary InCtx proof with a given length

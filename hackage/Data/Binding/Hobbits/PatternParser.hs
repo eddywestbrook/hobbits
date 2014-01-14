@@ -21,16 +21,14 @@ import qualified Language.Haskell.Meta.Parse as Meta
 import qualified Language.Haskell.Meta.Parse as Sloppy
 import qualified Language.Haskell.Meta.Syntax.Translate as Translate
 
+import Language.Haskell.Exts.Extension
+
 #if MIN_VERSION_haskell_src_exts(1,14,0)
-import Language.Haskell.Exts.Extension (KnownExtension(ViewPatterns),
-                                        Extension(EnableExtension))
 parsePatternExtensions =
   map EnableExtension $ ViewPatterns : Sloppy.myDefaultExtensions
 #else
-import Language.Haskell.Exts.Extension (KnownExtension(ViewPatterns))
 parsePatternExtensions = ViewPatterns : Sloppy.myDefaultExtensions
 #endif
-
 
 
 
