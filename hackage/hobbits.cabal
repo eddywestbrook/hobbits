@@ -46,7 +46,7 @@ Library
                    Data.Binding.Hobbits.Liftable,
 
                    Data.Binding.Hobbits.PatternParser,
-                   Data.Binding.Hobbits.NuElim,
+                   Data.Binding.Hobbits.NuMatching,
 
                    Data.Binding.Hobbits.Examples.LambdaLifting,
                    Data.Binding.Hobbits.Examples.LambdaLifting.Terms,

@@ -38,10 +38,10 @@ module Data.Binding.Hobbits (
   -- * Ancilliary modules
   module Data.Type.List,
   -- | Type lists track the types of bound variables.
-  module Data.Binding.Hobbits.NuElim
-  -- | The "Data.Binding.Hobbits.NuElim" module allows elimination of
-  -- bindings and multi-bindings; NOTE: this module is not covered in
-  -- the \"Hobbits for Haskell\" paper.
+  module Data.Binding.Hobbits.NuMatching
+  -- | The "Data.Binding.Hobbits.NuMatching" module exposes the
+  -- | NuMatching class, which allows pattern-matching on (G)ADTs in
+  -- | the bodies of multi-bindings
                             ) where
 
 import Data.Type.List
@@ -49,4 +49,4 @@ import Data.Binding.Hobbits.Mb
 import Data.Binding.Hobbits.Closed
 import Data.Binding.Hobbits.QQ
 import Data.Binding.Hobbits.Liftable
-import Data.Binding.Hobbits.NuElim
+import Data.Binding.Hobbits.NuMatching

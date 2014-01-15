@@ -104,3 +104,14 @@ replace (xs :> x) (Member_Step memb) y = replace xs memb y :> x
 mapCToList :: MapC (Constant a) c -> [a]
 mapCToList Nil = []
 mapCToList (xs :> Constant x) = mapCToList xs ++ [x]
+
+-- | A type-class which ensures that ctx is a valid context, i.e., has
+-- | the form (Nil :> t1 :> ... :> tn) for some types t1 through tn
+class TypeCtx ctx where
+  typeCtxProxies :: MapC Proxy ctx
+
+instance TypeCtx Nil where
+  typeCtxProxies = Nil
+
+instance TypeCtx ctx => TypeCtx (ctx :> a) where
+  typeCtxProxies = typeCtxProxies :> Proxy

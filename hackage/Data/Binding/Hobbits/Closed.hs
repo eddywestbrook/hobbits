@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell, ViewPatterns #-}
 
 -- |
 -- Module      : Data.Binding.Hobbits.Closed
@@ -23,7 +23,8 @@ module Data.Binding.Hobbits.Closed (
   mkClosed, Closed, unClosed
 ) where
 
-import Data.Binding.Hobbits.Internal (Name, Mb(..), Cl(..))
+import Data.Binding.Hobbits.Internal.Name
+import Data.Binding.Hobbits.Internal.Mb
 
 import Data.Binding.Hobbits.NuElim
 
@@ -35,15 +36,12 @@ import qualified Data.Generics as SYB
 import qualified Language.Haskell.TH.Syntax as TH
 
 
-
-
 {-|
   The type @Cl a@ represents a closed term of type @a@,
   i.e., an expression of type @a@ with no free (Haskell) variables.
   Since this cannot be checked directly in the Haskell type system,
   the @Cl@ data type is hidden, and the user can only create
-  closed terms using Template Haskell, through the 'mkClosed'
-  operator.
+  closed terms using Template Haskell, through the 'cl' operator.
 -}
 newtype Cl a = Cl { unCl :: a }
 
@@ -80,21 +78,19 @@ cl e = AppE (ConE 'Cl) `fmap` e >>= SYB.everywhereM (SYB.mkM w) where
 
 
 
-
-
 -- | Closed terms are closed (sorry) under application.
 clApply :: Cl (a -> b) -> Cl a -> Cl b
 -- could be defined with cl were it not for the GHC stage restriction
 clApply (Cl f) (Cl a) = Cl (f a)
 
 -- | Closed multi-bindings are also closed under application.
-clMbApply :: (NuElim a, NuElim b) => Cl (Mb ctx (a -> b)) -> Cl (Mb ctx a) ->
+clMbApply :: Cl (Mb ctx (a -> b)) -> Cl (Mb ctx a) ->
              Cl (Mb ctx b)
 clMbApply (Cl f) (Cl a) = Cl (mbApply f a)
 
 -- | @mbLiftClosed@ is safe because closed terms don't contain names.
 mbLiftClosed :: Mb ctx (Cl a) -> Cl a
-mbLiftClosed (MkMb _ a) = a
+mbLiftClosed (ensureFreshPair -> (_, Cl a)) = a
 
 -- | @noClosedNames@ encodes the hobbits guarantee that no name can escape its
 -- multi-binding.
@@ -107,7 +103,8 @@ noClosedNames _ = error $ "... Clever girl!" ++
 --
 -- > mbApplyCl $(cl [| f |]) (nu $ \n -> n)   =   nu f
 mbApplyCl :: Cl (a -> b) -> Mb ctx a -> Mb ctx b
-mbApplyCl f (MkMb names i) = MkMb names (unCl f i)
+mbApplyCl f (MkMbPair tRepr names body) = MkMbPair tRepr names (unCl f body)
+mbApplyCl f (MkMbFun proxies f_arg) = MkMbFun proxies (\ns -> unCl f $ f_arg ns)
 
 
 
