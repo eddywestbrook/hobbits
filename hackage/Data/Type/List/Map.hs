@@ -57,6 +57,7 @@ mapC f (mc :> x) = mapC f mc :> f x
 mapC2 :: (forall x. f x -> g x -> h x) -> MapC f c -> MapC g c -> MapC h c
 mapC2 _ Nil Nil = Nil
 mapC2 f (xs :> x) (ys :> y) = mapC2 f xs ys :> f x y
+mapC2 _ _ _ = error "Something is terribly wrong in mapC2: this case should not happen!"
 
 -- | Append two 'MapC' vectors.
 append :: MapC f c1 -> MapC f c2 -> MapC f (c1 :++: c2)
@@ -67,6 +68,7 @@ append mc1 (mc2 :> x) = append mc1 mc2 :> x
 appendWithPf :: Append c1 c2 c -> MapC f c1 -> MapC f c2 -> MapC f c
 appendWithPf Append_Base mc Nil = mc
 appendWithPf (Append_Step app) mc1 (mc2 :> x) = appendWithPf app mc1 mc2 :> x
+appendWithPf  _ _ _ = error "Something is terribly wrong in appendWithPf: this case should not happen!"
 
 -- | Make an 'Append' proof from any 'MapC' vector for the second
 -- argument of the append.
@@ -99,6 +101,7 @@ members (c :> _) =
 replace :: MapC f c -> Member c a -> f a -> MapC f c
 replace (xs :> _) Member_Base y = xs :> y
 replace (xs :> x) (Member_Step memb) y = replace xs memb y :> x
+replace _ _ _ = error "Should not happen! (Map.replace)"
 
 -- | Convert a MapC to a list
 mapCToList :: MapC (Constant a) c -> [a]

@@ -54,3 +54,5 @@ Library
 
   Other-Modules: Data.Binding.Hobbits.Internal.Utilities,
                    Data.Binding.Hobbits.Internal.Name
+                   Data.Binding.Hobbits.Internal.Mb
+                   Data.Binding.Hobbits.Internal.Closed

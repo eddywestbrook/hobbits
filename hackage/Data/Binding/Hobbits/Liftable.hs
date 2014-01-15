@@ -1,4 +1,4 @@
-{-# LANGUAGE GADTs, TypeOperators, FlexibleInstances, OverlappingInstances, TemplateHaskell, ViewPatterns, QuasiQuotes #-}
+{-# LANGUAGE GADTs, TypeOperators, FlexibleInstances, TemplateHaskell, ViewPatterns, QuasiQuotes #-}
 
 -- |
 -- Module      : Data.Binding.Hobbits.Mb
@@ -19,25 +19,40 @@
 module Data.Binding.Hobbits.Liftable where
 
 import Data.Type.List.Proof.Member
+import Data.Binding.Hobbits.Internal.Mb
 import Data.Binding.Hobbits.Mb
 import Data.Binding.Hobbits.QQ
+import Data.Binding.Hobbits.Closed
+import Data.Binding.Hobbits.NuMatching
 
 
 {-|
   The class @Liftable a@ gives a \"lifting function\" for a, which can
   take any data of type @a@ out of a multi-binding of type @'Mb' ctx a@.
 -}
-class Liftable a where
+class NuMatching a => Liftable a where
     mbLift :: Mb ctx a -> a
 
-instance Liftable Int where
-    mbLift = mbLiftInt
-
-instance Liftable Integer where
-    mbLift = mbLiftInteger
+-------------------------------------------------------------------------------
+-- Lifting instances that must be defined inside the library abstraction boundary
+-------------------------------------------------------------------------------
 
 instance Liftable Char where
-    mbLift = mbLiftChar
+    mbLift (ensureFreshPair -> (_, c)) = c
+
+instance Liftable Int where
+    mbLift (ensureFreshPair -> (_, i)) = i
+
+instance Liftable Integer where
+    mbLift (ensureFreshPair -> (_, i)) = i
+
+instance Liftable (Closed a) where
+    mbLift (ensureFreshPair -> (_, c)) = c
+
+
+-------------------------------------------------------------------------------
+-- Lifting instances and related functions that could be defined outside the library
+-------------------------------------------------------------------------------
 
 -- README: this requires overlapping instances, because it clashes
 -- with Liftable2, but this instance is better because it does not
@@ -45,6 +60,27 @@ instance Liftable Char where
 instance Liftable (Member c a) where
     mbLift [nuP| Member_Base |] = Member_Base
     mbLift [nuP| Member_Step m |] = Member_Step (mbLift m)
+
+-- | Lift a list (but not its elements) out of a multi-binding
+mbList :: NuMatching a => Mb c [a] -> [Mb c a]
+mbList [nuP| [] |] = []
+mbList [nuP| x : xs |] = x : mbList xs
+
+
+-------------------------------------------------------------------------------
+-- Liftable1 and Liftable2
+-------------------------------------------------------------------------------
+
+instance Liftable a => Liftable [a] where
+    mbLift [nuP| [] |] = []
+    mbLift [nuP| x : xs |] = (mbLift x) : (mbLift xs)
+
+instance (Liftable a, Liftable b) => Liftable (a,b) where
+    mbLift [nuP| (x,y) |] = (mbLift x, mbLift y)
+
+-- README: these lead to overlapping instances...
+
+{-
 
 {-|
   The class @Liftable1 f@ gives a lifting function for each type @f a@
@@ -73,7 +109,4 @@ instance Liftable2 (,) where
 instance (Liftable2 f, Liftable a) => Liftable1 (f a) where
     mbLift1 = mbLift2
 
--- | Lift a list (but not its elements) out of a multi-binding
-mbList :: Mb c [a] -> [Mb c a]
-mbList [nuP| [] |] = []
-mbList [nuP| x : xs |] = x : mbList xs
+-}

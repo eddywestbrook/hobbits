@@ -18,7 +18,6 @@
 
 module Data.Binding.Hobbits.Internal.Mb where
 
-import Data.List
 import Data.Typeable
 import Data.Proxy
 import Data.Type.Equality

@@ -34,6 +34,7 @@ import Control.Monad.Identity
 
 import Data.Binding.Hobbits.Internal.Name
 import Data.Binding.Hobbits.Internal.Mb
+import Data.Binding.Hobbits.Internal.Closed
 
 
 {-| Just like 'mapNamesPf', except uses the NuMatching class. -}
@@ -54,6 +55,10 @@ class NuMatching a where
 instance NuMatching (Name a) where
     nuMatchingProof = MbTypeReprName
 
+instance NuMatching (Cl a) where
+    -- no need to map free variables in a Closed object
+    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\c1 c2 -> id))
+
 instance (NuMatching a, NuMatching b) => NuMatching (a -> b) where
     nuMatchingProof = MbTypeReprFun nuMatchingProof nuMatchingProof
 
@@ -61,6 +66,9 @@ instance NuMatching a => NuMatching (Mb ctx a) where
     nuMatchingProof = MbTypeReprMb nuMatchingProof
 
 instance NuMatching Int where
+    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\c1 c2 -> id))
+
+instance NuMatching Integer where
     nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\c1 c2 -> id))
 
 instance NuMatching Char where
@@ -84,6 +92,9 @@ instance (NuMatching a, NuMatching b) => NuMatching (Either a b) where
 
 instance NuMatching a => NuMatching [a] where
     nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\c1 c2 -> map (mapNames c1 c2)))
+
+instance NuMatching (Member c a) where
+    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\c1 c2 -> id))
 
 
 {-

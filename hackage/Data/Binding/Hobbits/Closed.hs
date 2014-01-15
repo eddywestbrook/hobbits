@@ -2,7 +2,7 @@
 
 -- |
 -- Module      : Data.Binding.Hobbits.Closed
--- Copyright   : (c) 2011 Edwin Westbrook, Nicolas Frisby, and Paul Brauner
+-- Copyright   : (c) 2014 Edwin Westbrook, Nicolas Frisby, and Paul Brauner
 --
 -- License     : BSD3
 --
@@ -18,15 +18,15 @@ module Data.Binding.Hobbits.Closed (
   -- * Abstract types
   Cl(),
   -- * Operators involving 'Cl'
-  cl, clApply, unCl, mbApplyCl, mbLiftClosed, noClosedNames,
+  cl, clApply, unCl, noClosedNames,
   -- * Synonyms
   mkClosed, Closed, unClosed
 ) where
 
 import Data.Binding.Hobbits.Internal.Name
 import Data.Binding.Hobbits.Internal.Mb
-
-import Data.Binding.Hobbits.NuElim
+import Data.Binding.Hobbits.Internal.Closed
+import Data.Binding.Hobbits.Mb
 
 import Language.Haskell.TH (Q, Exp(..), Type(..))
 import qualified Language.Haskell.TH as TH
@@ -34,17 +34,6 @@ import qualified Language.Haskell.TH.ExpandSyns as TH
 
 import qualified Data.Generics as SYB
 import qualified Language.Haskell.TH.Syntax as TH
-
-
-{-|
-  The type @Cl a@ represents a closed term of type @a@,
-  i.e., an expression of type @a@ with no free (Haskell) variables.
-  Since this cannot be checked directly in the Haskell type system,
-  the @Cl@ data type is hidden, and the user can only create
-  closed terms using Template Haskell, through the 'cl' operator.
--}
-newtype Cl a = Cl { unCl :: a }
-
 
 
 -- | @cl@ is used with Template Haskell quotations to create closed terms of
@@ -88,25 +77,11 @@ clMbApply :: Cl (Mb ctx (a -> b)) -> Cl (Mb ctx a) ->
              Cl (Mb ctx b)
 clMbApply (Cl f) (Cl a) = Cl (mbApply f a)
 
--- | @mbLiftClosed@ is safe because closed terms don't contain names.
-mbLiftClosed :: Mb ctx (Cl a) -> Cl a
-mbLiftClosed (ensureFreshPair -> (_, Cl a)) = a
-
 -- | @noClosedNames@ encodes the hobbits guarantee that no name can escape its
 -- multi-binding.
 noClosedNames :: Cl (Name a) -> b
 noClosedNames _ = error $ "... Clever girl!" ++
   "The `noClosedNames' invariant has somehow been violated."
-
--- | @mbApplyCl@ @f@ @b@ applies a closed function @f@ to the body of
--- multi-binding @b@. For example:
---
--- > mbApplyCl $(cl [| f |]) (nu $ \n -> n)   =   nu f
-mbApplyCl :: Cl (a -> b) -> Mb ctx a -> Mb ctx b
-mbApplyCl f (MkMbPair tRepr names body) = MkMbPair tRepr names (unCl f body)
-mbApplyCl f (MkMbFun proxies f_arg) = MkMbFun proxies (\ns -> unCl f $ f_arg ns)
-
-
 
 -- | @mkClosed = cl@
 mkClosed = cl

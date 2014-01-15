@@ -28,9 +28,7 @@ module Data.Binding.Hobbits.Mb (
   elimEmptyMb, mbCombine, mbSeparate, mbToProxy,
   mbSwap, mbApply,
   -- * Eliminators for multi-bindings
-  nuMultiWithElim, nuWithElim, nuMultiWithElim1, nuWithElim1,
-  -- * Special-purpose lifting functions
-  mbLiftChar, mbLiftInt, mbLiftInteger,
+  nuMultiWithElim, nuWithElim, nuMultiWithElim1, nuWithElim1
 ) where
 
 import Data.List (intersperse)
@@ -281,20 +279,3 @@ nuMultiWithElim1 f arg =
 nuWithElim1 :: (Name a -> arg -> b) -> Binding a arg -> Binding a b
 nuWithElim1 f arg =
   nuWithElim (\n (Nil :> Identity arg) -> f n arg) (Nil :> arg)
-
-
--------------------------------------------------------------------------------
--- Special-purpose lifting functions
--------------------------------------------------------------------------------
-
--- | Lifts a @Char@ out of a multi-binding
-mbLiftChar :: Mb ctx Char -> Char
-mbLiftChar (ensureFreshPair -> (_, c)) = c
-
--- | Lifts an @Int@ out of a multi-binding
-mbLiftInt :: Mb ctx Int -> Int
-mbLiftInt (ensureFreshPair -> (_, i)) = i
-
--- | Lifts an @Integer@ out of a multi-binding
-mbLiftInteger :: Mb ctx Integer -> Integer
-mbLiftInteger (ensureFreshPair -> (_, i)) = i
