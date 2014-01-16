@@ -125,7 +125,7 @@ nuKit :: TH.Name -> TH.Name -> WrapKit
 nuKit topVar namesVar = WrapKit {_varView = varView, _asXform = asXform, _topXform = topXform} where
   varView = (VarE 'same_ctx `AppE` VarE topVar) `compose`
         (appEMulti (ConE 'MkMbPair) [VarE 'nuMatchingProof, VarE namesVar])
-  asXform p = ConP 'MkMbPair [WildP, WildP, p]
+  asXform p = ViewP (VarE 'ensureFreshPair) (TupP [WildP, p])
   topXform b p = if b then AsP topVar $ ViewP (VarE 'ensureFreshPair) (TupP [VarP namesVar, p]) else asXform p
 
 -- | Quasi-quoter for patterns that match over 'Mb'

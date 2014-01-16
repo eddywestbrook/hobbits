@@ -1,5 +1,5 @@
 {-# LANGUAGE EmptyDataDecls #-}
-{-# LANGUAGE QuasiQuotes, ViewPatterns #-}
+{-# LANGUAGE TemplateHaskell, Rank2Types, QuasiQuotes, ViewPatterns #-}
 {-# LANGUAGE GADTs, KindSignatures #-}
 
 -- |
@@ -26,6 +26,11 @@ import qualified Data.Type.List.Map as C
 data L a
 data D a
 
+-- to make a function for MapC (for pretty)
+newtype StringF x = StringF String
+unStringF (StringF str) = str
+
+
 ------------------------------------------------------------
 -- source terms
 ------------------------------------------------------------
@@ -35,6 +40,8 @@ data Term :: * -> * where
   Var :: Name (L a) -> Term a
   Lam :: Binding (L b) (Term a) -> Term (b -> a)
   App :: Term (b -> a) -> Term b -> Term a
+
+$(mkNuMatching [t| forall a . Term a |])
 
 instance Show (Term a) where show = tpretty
 
@@ -66,8 +73,6 @@ data DTerm :: * -> * where
   TDVar :: Name (D a) -> DTerm a
   TApp :: DTerm (a -> b) -> DTerm a -> DTerm b
 
-instance Show (DTerm a) where show = pretty
-
 -- we use this type for a definiens instead of putting lambdas on the front
 data Decl :: * -> * where
   Decl_One :: Binding (L a) (DTerm b) -> Decl (a -> b)
@@ -78,15 +83,16 @@ data Decls :: * -> * where
   Decls_Base :: DTerm a -> Decls a
   Decls_Cons :: Decl b -> Binding (D b) (Decls a) -> Decls a
 
+$(mkNuMatching [t| forall a . DTerm a |])
+$(mkNuMatching [t| forall a . Decl a |])
+$(mkNuMatching [t| forall a . Decls a |])
+
+instance Show (DTerm a) where show = pretty
 instance Show (Decls a) where show = decls_pretty
 
 ------------------------------------------------------------
 -- pretty printing
 ------------------------------------------------------------
-
--- to make a function for MapC (for pretty)
-newtype StringF x = StringF String
-unStringF (StringF str) = str
 
 -- pretty print terms
 pretty :: DTerm a -> String

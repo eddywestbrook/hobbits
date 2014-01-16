@@ -197,7 +197,7 @@ mkNuMatching tQ =
        clauses <- mapM (getClause (tName, fName, x1Name, x2Name)) constrs
        mapNamesT <- mapNamesType (return cType)
        return [InstanceD
-               cxt (AppT (ConT ''MbTypeRepr) cType)
+               cxt (AppT (ConT ''NuMatching) cType)
                [ValD (VarP 'nuMatchingProof)
                 (NormalB
                  $ AppE (ConE 'MbTypeReprData)

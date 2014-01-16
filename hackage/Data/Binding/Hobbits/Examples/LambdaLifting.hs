@@ -166,7 +166,7 @@ data SepRet lc c fvs where
   SepRet :: FVList c fvs' -> SubC fvs (fvs' :++: lc) -> SepRet lc c fvs
 
 fvSSepLTVarsH ::
-  MapC f lc -> Proxy c -> FVList (c :++: lc) fvs -> SepRet lc c fvs
+  C.TypeCtx lc => MapC f lc -> Proxy c -> FVList (c :++: lc) fvs -> SepRet lc c fvs
 fvSSepLTVarsH _ _ Nil = SepRet Nil (\_ -> Nil)
 fvSSepLTVarsH lc c (fvs :> fv@(MbLName n)) = case fvSSepLTVarsH lc c fvs of
   SepRet m f -> case raiseAppName (C.mkMonoAppend c lc) n of
@@ -178,9 +178,9 @@ fvSSepLTVarsH lc c (fvs :> fv@(MbLName n)) = case fvSSepLTVarsH lc c fvs of
     where c' = proxyCons (C.proxy m) fv
 
 raiseAppName ::
-  Append c1 c2 c -> Mb c (Name a) -> Either (Member c2 a) (Mb c1 (Name a))
+  C.TypeCtx c2 => Append c1 c2 (c1 :++: c2) -> Mb (c1 :++: c2) (Name a) -> Either (Member c2 a) (Mb c1 (Name a))
 raiseAppName app n =
-  case mbApplyCl $(mkClosed [| mbNameBoundP |]) (mbSeparate app n) of
+  case fmap mbNameBoundP (mbSeparate Proxy n) of
     [nuP| Left mem |] -> Left $ mbLift mem
     [nuP| Right n |] -> Right n
 
@@ -219,4 +219,4 @@ lambdaLift t = runCont (llBody Nil (emptyMb t)) $ \(FVSTerm fvs db) ->
   Decls_Base (skelSubst db (C.mapC (\(MbLName mbn) -> elimEmptyMb mbn) fvs))
 
 mbLambdaLift :: Mb c (Term a) -> Mb c (Decls a)
-mbLambdaLift = mbApplyCl $(mkClosed [| lambdaLift |])
+mbLambdaLift = fmap lambdaLift

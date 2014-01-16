@@ -20,7 +20,6 @@ module Data.Binding.Hobbits.Liftable where
 
 import Data.Type.List.Proof.Member
 import Data.Binding.Hobbits.Internal.Mb
-import Data.Binding.Hobbits.Mb
 import Data.Binding.Hobbits.QQ
 import Data.Binding.Hobbits.Closed
 import Data.Binding.Hobbits.NuMatching

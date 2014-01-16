@@ -25,14 +25,12 @@ module Data.Binding.Hobbits.Mb (
   -- * Queries on names
   cmpName, mbNameBoundP, mbCmpName,
   -- * Operations on multi-bindings
-  elimEmptyMb, mbCombine, mbSeparate, mbToProxy,
-  mbSwap, mbApply,
+  elimEmptyMb, mbCombine, mbSeparate, mbToProxy, mbSwap, mbApply,
   -- * Eliminators for multi-bindings
   nuMultiWithElim, nuWithElim, nuMultiWithElim1, nuWithElim1
 ) where
 
-import Data.List (intersperse)
-import Data.Functor.Constant
+import Control.Applicative
 import Control.Monad.Identity
 
 import Unsafe.Coerce (unsafeCoerce)
@@ -211,6 +209,19 @@ mbSwap (ensureFreshFun -> (proxies1, f1)) =
 mbApply :: Mb ctx (a -> b) -> Mb ctx a -> Mb ctx b
 mbApply (ensureFreshFun -> (proxies, f_fun)) (ensureFreshFun -> (_, f_arg)) =
   MkMbFun proxies (\ns -> f_fun ns $ f_arg ns)
+
+
+-------------------------------------------------------------------------------
+-- Functor and Applicative instances
+-------------------------------------------------------------------------------
+
+instance Functor (Mb ctx) where
+    fmap f mbArg =
+        mbApply (nuMulti (mbToProxy mbArg) (\_ -> f)) mbArg
+
+instance TypeCtx ctx => Applicative (Mb ctx) where
+    pure x = nuMulti typeCtxProxies (const x)
+    (<*>) = mbApply
 
 
 -------------------------------------------------------------------------------
