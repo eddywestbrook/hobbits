@@ -1,0 +1,4 @@
+
+1.1.1 -> 1.2
+- Added Closed type
+- Updated to work with stack and also ghc-7.10
