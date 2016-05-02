@@ -16,7 +16,7 @@
 module Data.Binding.Hobbits.Internal where
 
 import Data.Typeable
-import Data.Type.List
+import Data.Type.HList
 import Unsafe.Coerce (unsafeCoerce)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import System.IO.Unsafe (unsafePerformIO)

@@ -21,13 +21,12 @@ module Data.Binding.Hobbits.Internal.Name where
 import Data.List
 import Data.Functor.Constant
 import Data.Typeable
-import Data.Type.Equality ((:=:))
+import Data.Type.Equality ((:~:))
 import Unsafe.Coerce (unsafeCoerce)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import System.IO.Unsafe (unsafePerformIO)
 
-import Data.Type.List
-import Data.Type.List.Map
+import Data.Type.HList
 
 
 -- | A @Name a@ is a bound name that is associated with type @a@.
@@ -36,9 +35,9 @@ newtype Name a = MkName Int deriving (Typeable, Eq)
 instance Show (Name a) where
   showsPrec _ (MkName n) = showChar '#' . shows n . showChar '#'
 
-instance Show (MapC Name c) where
-    show mapc = "[" ++ (concat $ intersperse "," $ mapCToList $
-                        mapC (Constant . show) mapc) ++ "]"
+instance Show (HList Name c) where
+    show names = "[" ++ (concat $ intersperse "," $ hlistToList $
+                        mapHList (Constant . show) names) ++ "]"
 
 
 -------------------------------------------------------------------------------
@@ -48,14 +47,14 @@ instance Show (MapC Name c) where
 {-|
   @cmpName n m@ compares names @n@ and @m@ of types @Name a@ and @Name b@,
   respectively. When they are equal, @Some e@ is returned for @e@ a proof
-  of type @a :=: b@ that their types are equal. Otherwise, @None@ is returned.
+  of type @a :~: b@ that their types are equal. Otherwise, @None@ is returned.
 
   For example:
 
 > nu $ \n -> nu $ \m -> cmpName n n   ==   nu $ \n -> nu $ \m -> Some Refl
 > nu $ \n -> nu $ \m -> cmpName n m   ==   nu $ \n -> nu $ \m -> None
 -}
-cmpName :: Name a -> Name b -> Maybe (a :=: b)
+cmpName :: Name a -> Name b -> Maybe (a :~: b)
 cmpName (MkName n1) (MkName n2)
   | n1 == n2 = Just $ unsafeCoerce Refl
   | otherwise = Nothing
@@ -86,26 +85,26 @@ unsafeLookupC n = case memberFromLen n of
 
 
 -- building a proxy for each type in some unknown context
-data ExProxy where ExProxy :: MapC Proxy ctx -> ExProxy
+data ExProxy where ExProxy :: HList Proxy ctx -> ExProxy
 proxyFromLen :: Int -> ExProxy
 proxyFromLen 0 = ExProxy Nil
 proxyFromLen n = case proxyFromLen (n - 1) of
                    ExProxy proxy -> ExProxy (proxy :> Proxy)
 
--- unsafely building a proxy for each type in ctx from the length n
--- of ctx; this is only safe when we know the length of ctx = n
-unsafeProxyFromLen :: Int -> MapC Proxy ctx
-unsafeProxyFromLen n = case proxyFromLen n of
-                         ExProxy proxy -> unsafeCoerce proxy
+-- -- unsafely building a proxy for each type in ctx from the length n
+-- -- of ctx; this is only safe when we know the length of ctx = n
+-- unsafeProxyFromLen :: Int -> MapC Proxy ctx
+-- unsafeProxyFromLen n = case proxyFromLen n of
+--                          ExProxy proxy -> unsafeCoerce proxy
 
--- unsafely convert a list of Ints, used to represent names, to
--- names of certain, given types; note that the first name in the
--- list becomes the last name in the output, with the same reversal
--- used in the Mb representation (see, e.g., mbCombine)
-unsafeNamesFromInts :: [Int] -> MapC Name ctx
-unsafeNamesFromInts [] = unsafeCoerce Nil
-unsafeNamesFromInts (x:xs) =
-    unsafeCoerce $ unsafeNamesFromInts xs :> MkName x
+-- -- unsafely convert a list of Ints, used to represent names, to
+-- -- names of certain, given types; note that the first name in the
+-- -- list becomes the last name in the output, with the same reversal
+-- -- used in the Mb representation (see, e.g., mbCombine)
+-- unsafeNamesFromInts :: [Int] -> MapC Name ctx
+-- unsafeNamesFromInts [] = unsafeCoerce Nil
+-- unsafeNamesFromInts (x:xs) =
+--     unsafeCoerce $ unsafeNamesFromInts xs :> MkName x
 
 -------------------------------------------------------------------------------
 -- encapsulated impurity
@@ -129,7 +128,7 @@ fresh_name a = unsafePerformIO $ do
     writeIORef counter (x+1)
     return x
 
--- make one fresh name for each name in a given input list
-fresh_names :: MapC Name ctx -> MapC Name ctx
-fresh_names Nil = Nil
-fresh_names (names :> n) = fresh_names names :> MkName (fresh_name n)
+-- -- make one fresh name for each name in a given input list
+-- fresh_names :: MapC Name ctx -> MapC Name ctx
+-- fresh_names Nil = Nil
+-- fresh_names (names :> n) = fresh_names names :> MkName (fresh_name n)

@@ -21,8 +21,8 @@ module Data.Binding.Hobbits.Internal.Mb where
 import Data.Typeable
 import Data.Proxy
 import Data.Type.Equality
+import Data.Type.HList
 
-import Data.Type.List.Map
 import Data.Binding.Hobbits.Internal.Name
 
 
@@ -38,8 +38,8 @@ import Data.Binding.Hobbits.Internal.Name
   that the names given in the pair can be relaced by fresher names.
 -}
 data Mb ctx b
-    = MkMbFun (MapC Proxy ctx) (MapC Name ctx -> b)
-    | MkMbPair (MbTypeRepr b) (MapC Name ctx) b
+    = MkMbFun (HList Proxy ctx) (HList Name ctx -> b)
+    | MkMbPair (MbTypeRepr b) (HList Name ctx) b
     deriving Typeable
 
 
@@ -60,7 +60,7 @@ data MbTypeRepr a where
     MbTypeReprData :: MbTypeReprData a -> MbTypeRepr a
 
 data MbTypeReprData a =
-    MkMbTypeReprData (forall ctx. MapC Name ctx -> MapC Name ctx -> a -> a)
+    MkMbTypeReprData (forall ctx. HList Name ctx -> HList Name ctx -> a -> a)
 
 
 {-|
@@ -69,7 +69,7 @@ data MbTypeReprData a =
   listed in @ns'@. This is similar to the name-swapping of Nominal
   Logic, except that the swapping does not go both ways.
 -}
-mapNamesPf :: MbTypeRepr a -> MapC Name ctx -> MapC Name ctx -> a -> a
+mapNamesPf :: MbTypeRepr a -> HList Name ctx -> HList Name ctx -> a -> a
 mapNamesPf MbTypeReprName Nil Nil n = n
 mapNamesPf MbTypeReprName (names :> m) (names' :> m') n =
     case cmpName m n of
@@ -88,14 +88,14 @@ mapNamesPf (MbTypeReprData (MkMbTypeReprData mapFun)) names names' x =
 
 
 -- | Ensures a multi-binding is in "fresh function" form
-ensureFreshFun :: Mb ctx a -> (MapC Proxy ctx, MapC Name ctx -> a)
+ensureFreshFun :: Mb ctx a -> (HList Proxy ctx, HList Name ctx -> a)
 ensureFreshFun (MkMbFun proxies f) = (proxies, f)
 ensureFreshFun (MkMbPair tRepr ns body) =
-    (mapC (\_ -> Proxy) ns, \ns' -> mapNamesPf tRepr ns ns' body)
+    (mapHList (\_ -> Proxy) ns, \ns' -> mapNamesPf tRepr ns ns' body)
 
 -- | Ensures a multi-binding is in "fresh pair" form
-ensureFreshPair :: Mb ctx a -> (MapC Name ctx, a)
+ensureFreshPair :: Mb ctx a -> (HList Name ctx, a)
 ensureFreshPair (MkMbPair _ ns body) = (ns, body)
 ensureFreshPair (MkMbFun proxies f) =
-    let ns = mapC (MkName . fresh_name) proxies in
+    let ns = mapHList (MkName . fresh_name) proxies in
     (ns, f ns)

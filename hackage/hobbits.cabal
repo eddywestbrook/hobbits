@@ -9,7 +9,7 @@ Description: A library for canonically representing terms with binding via a
 License:             BSD3
 License-file:        LICENSE
 Author:              Eddy Westbrook, Nicolas Frisby, Paul Brauner
-Maintainer:          emw4@rice.edu
+Maintainer:          westbrook@galois.com
 
 Category:            Data Structures
 
@@ -17,27 +17,23 @@ Cabal-version: >= 1.6.0.1
 Build-Type:    Simple
 
 Library
-  Build-Depends: base >= 4 && < 5
-  Build-Depends: template-haskell >= 2.5 && < 2.9
+  Build-Depends: base == 4.8.*
+  Build-Depends: template-haskell == 2.10.*
 
   Build-Depends: syb
   Build-Depends: mtl
 
-  Build-Depends: type-equality, tagged
+  Build-Depends: tagged
   Build-Depends: deepseq
 
-  Build-Depends: haskell-src-meta >= 0.5.1.1, haskell-src-exts,
+  Build-Depends: haskell-src-exts >= 1.17.1 && < 1.18, haskell-src-meta,
                  th-expand-syns >= 0.3 && < 0.4, transformers
 
   GHC-Options: -fwarn-incomplete-patterns -fwarn-unused-imports
 
   Extensions: CPP
 
-  Exposed-Modules: Data.Type.List,
-                   Data.Type.List.List,
-                   Data.Type.List.Map,
-                   Data.Type.List.Proof.Append,
-                   Data.Type.List.Proof.Member,
+  Exposed-Modules: Data.Type.HList,
 
                    Data.Binding.Hobbits,
                    Data.Binding.Hobbits.Mb,

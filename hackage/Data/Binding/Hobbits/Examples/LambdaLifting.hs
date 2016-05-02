@@ -32,8 +32,7 @@ module Data.Binding.Hobbits.Examples.LambdaLifting (
   ) where
 
 import Data.Binding.Hobbits
-import qualified Data.Type.List.Map as C
-import qualified Data.Type.List.Proof.Member as Mem
+import qualified Data.Type.HList as C
 
 import Data.Binding.Hobbits.Examples.LambdaLifting.Terms
 
@@ -47,7 +46,7 @@ import Control.Monad.Cont (Cont, runCont, cont)
 ------------------------------------------------------------
 
 data LType a where LType :: LType (L a)
-type LC c = MapC LType c
+type LC c = HList LType c
 
 type family AddArrows c b
 type instance AddArrows Nil b = b
@@ -71,13 +70,13 @@ peelLambdasH lc0 ilt t = PeelRet (lc0 :> ilt) t
 
 
 boundParams ::
-  lc ~ (lc0 :> b) => LC lc -> (MapC Name lc -> DTerm a) ->
+  lc ~ (lc0 :> b) => LC lc -> (HList Name lc -> DTerm a) ->
                      Decl (AddArrows lc a)
 boundParams (lc0 :> LType) k = -- flagged as non-exhaustive, in spite of type
   freeParams lc0 (\ns -> Decl_One $ nu $ \n -> k (ns :> n))
 
 freeParams ::
-  LC lc -> (MapC Name lc -> Decl a) -> Decl (AddArrows lc a)
+  LC lc -> (HList Name lc -> Decl a) -> Decl (AddArrows lc a)
 freeParams Nil k = k C.empty
 freeParams (lc :> LType) k =
     freeParams lc (\names -> Decl_Cons $ nu $ \x -> k (names :> x))
@@ -87,7 +86,7 @@ freeParams (lc :> LType) k =
 ------------------------------------------------------------
 
 -- FIXME: use this type in place of functions
-type SubC c' c = MapC Name c -> MapC Name c'
+type SubC c' c = HList Name c -> HList Name c'
 
 ------------------------------------------------------------
 -- operations on contexts of free variables
@@ -96,7 +95,7 @@ type SubC c' c = MapC Name c -> MapC Name c'
 data MbLName c a where
     MbLName :: Mb c (Name (L a)) -> MbLName c (L a)
 
-type FVList c fvs = MapC (MbLName c) fvs
+type FVList c fvs = HList (MbLName c) fvs
 
 -- unioning free variable contexts: the data structure
 data FVUnionRet c fvs1 fvs2 where
@@ -109,12 +108,12 @@ fvUnion Nil (fvs2 :> fv2) = case fvUnion Nil fvs2 of
   FVUnionRet fvs f1 f2 -> case elemMC fv2 fvs of
     Nothing -> FVUnionRet (fvs :> fv2)
                (\(xs :> _) -> f1 xs) (\(xs :> x) -> f2 xs :> x)
-    Just idx -> FVUnionRet fvs f1 (\xs -> f2 xs :> C.lookup idx xs)
+    Just idx -> FVUnionRet fvs f1 (\xs -> f2 xs :> C.hlistLookup idx xs)
 fvUnion (fvs1 :> fv1) fvs2 = case fvUnion fvs1 fvs2 of
   FVUnionRet fvs f1 f2 -> case elemMC fv1 fvs of
     Nothing -> FVUnionRet (fvs :> fv1)
                (\(xs :> x) -> f1 xs :> x) (\(xs :> _) -> f2 xs)
-    Just idx -> FVUnionRet fvs (\xs -> f1 xs :> C.lookup idx xs) f2
+    Just idx -> FVUnionRet fvs (\xs -> f1 xs :> C.hlistLookup idx xs) f2
 
 elemMC :: MbLName c a -> FVList c fvs -> Maybe (Member fvs a)
 elemMC _ Nil = Nothing
@@ -132,9 +131,9 @@ data STerm c a where
     SDVar :: Name (D a) -> STerm c a
     SApp :: STerm c (a -> b) -> STerm c a -> STerm c b
 
-skelSubst :: STerm c a -> MapC Name c -> DTerm a
+skelSubst :: STerm c a -> HList Name c -> DTerm a
 skelSubst (SWeaken f db) names = skelSubst db $ f names
-skelSubst (SVar inC) names = TVar $ C.lookup inC names
+skelSubst (SVar inC) names = TVar $ C.hlistLookup inC names
 skelSubst (SDVar dTVar) _ = TDVar dTVar
 skelSubst (SApp db1 db2) names = TApp (skelSubst db1 names) (skelSubst db2 names)
 
@@ -143,7 +142,7 @@ skelAppMultiNames ::
   STerm fvs (AddArrows fvs a) -> FVList c fvs -> STerm fvs a
 skelAppMultiNames db args = skelAppMultiNamesH db args (C.members args) where
   skelAppMultiNamesH ::
-    STerm fvs (AddArrows args a) -> FVList c args -> MapC (Member fvs) args ->
+    STerm fvs (AddArrows args a) -> FVList c args -> HList (Member fvs) args ->
     STerm fvs a
   skelAppMultiNamesH fvs Nil _ = fvs
   -- flagged as non-exhaustive, in spite of type
@@ -158,29 +157,33 @@ data FVSTerm c lc a where
     FVSTerm :: FVList c fvs -> STerm (fvs :++: lc) a -> FVSTerm c lc a
 
 fvSSepLTVars ::
-  MapC f lc -> FVSTerm (c :++: lc) Nil a -> FVSTerm c lc a
+  HList f lc -> FVSTerm (c :++: lc) Nil a -> FVSTerm c lc a
 fvSSepLTVars lc (FVSTerm fvs db) = case fvSSepLTVarsH lc Proxy fvs of
   SepRet fvs' f -> FVSTerm fvs' (SWeaken f db)
 
 data SepRet lc c fvs where
   SepRet :: FVList c fvs' -> SubC fvs (fvs' :++: lc) -> SepRet lc c fvs
 
+-- | Create a 'Proxy' object for the type list of a 'HList' vector.
+proxyOfHList :: HList f c -> Proxy c
+proxyOfHList _ = Proxy
+
 fvSSepLTVarsH ::
-  C.TypeCtx lc => MapC f lc -> Proxy c -> FVList (c :++: lc) fvs -> SepRet lc c fvs
+  HList f lc -> Proxy c -> FVList (c :++: lc) fvs -> SepRet lc c fvs
 fvSSepLTVarsH _ _ Nil = SepRet Nil (\_ -> Nil)
 fvSSepLTVarsH lc c (fvs :> fv@(MbLName n)) = case fvSSepLTVarsH lc c fvs of
   SepRet m f -> case raiseAppName (C.mkMonoAppend c lc) n of
-    Left idx -> SepRet m (\xs -> f xs :> C.lookup (Mem.weakenL (C.proxy m) idx) xs)
+    Left idx -> SepRet m (\xs -> f xs :> C.hlistLookup (C.weakenMemberL (proxyOfHList m) idx) xs)
     Right n -> SepRet (m :> MbLName n)
-               (\xs -> case C.split (C.mkMonoAppend c' lc) xs of
+               (\xs -> case C.splitHList c' lc xs of
                          (fvs' :> fv', lcs) ->
-                           f (C.append fvs' lcs) :> fv')
-    where c' = proxyCons (C.proxy m) fv
+                           f (appendHList fvs' lcs) :> fv')
+    where c' = proxyCons (proxyOfHList m) fv
 
 raiseAppName ::
-  C.TypeCtx c2 => Append c1 c2 (c1 :++: c2) -> Mb (c1 :++: c2) (Name a) -> Either (Member c2 a) (Mb c1 (Name a))
+  Append c1 c2 (c1 :++: c2) -> Mb (c1 :++: c2) (Name a) -> Either (Member c2 a) (Mb c1 (Name a))
 raiseAppName app n =
-  case fmap mbNameBoundP (mbSeparate Proxy n) of
+  case fmap mbNameBoundP (mbSeparate (proxiesFromAppend app) n) of
     [nuP| Left mem |] -> Left $ mbLift mem
     [nuP| Right n |] -> Right n
 
@@ -200,23 +203,23 @@ llBody c [nuP| App t1 t2 |] = do
   return $ FVSTerm names $ SApp (SWeaken sub1 db1) (SWeaken sub2 db2)
 llBody c [nuP| Lam b |] = do
   PeelRet lc body <- return $ peelLambdas b
-  llret <- llBody (C.append c lc) body
+  llret <- llBody (C.appendHList c lc) body
   FVSTerm fvs db <- return $ fvSSepLTVars lc llret
   cont $ \k ->
     Decls_Cons (freeParams (fvsToLC fvs) $ \names1 ->
                 boundParams lc $ \names2 ->
-                skelSubst db (C.append names1 names2))
+                skelSubst db (C.appendHList names1 names2))
       $ nu $ \d -> k $ FVSTerm fvs (skelAppMultiNames (SDVar d) fvs)
   where
     fvsToLC :: FVList c lc -> LC lc
-    fvsToLC = C.mapC mbLNameToProof where
+    fvsToLC = C.mapHList mbLNameToProof where
       mbLNameToProof :: MbLName c a -> LType a
       mbLNameToProof (MbLName _) = LType
 
 -- the top-level lambda-lifting function
 lambdaLift :: Term a -> Decls a
 lambdaLift t = runCont (llBody Nil (emptyMb t)) $ \(FVSTerm fvs db) ->
-  Decls_Base (skelSubst db (C.mapC (\(MbLName mbn) -> elimEmptyMb mbn) fvs))
+  Decls_Base (skelSubst db (C.mapHList (\(MbLName mbn) -> elimEmptyMb mbn) fvs))
 
 mbLambdaLift :: Mb c (Term a) -> Mb c (Decls a)
 mbLambdaLift = fmap lambdaLift

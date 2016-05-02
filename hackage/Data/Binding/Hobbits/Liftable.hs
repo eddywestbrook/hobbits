@@ -18,7 +18,7 @@
 
 module Data.Binding.Hobbits.Liftable where
 
-import Data.Type.List.Proof.Member
+import Data.Type.HList
 import Data.Binding.Hobbits.Internal.Mb
 import Data.Binding.Hobbits.QQ
 import Data.Binding.Hobbits.Closed

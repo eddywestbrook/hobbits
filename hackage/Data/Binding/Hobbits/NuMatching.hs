@@ -24,21 +24,20 @@ module Data.Binding.Hobbits.NuMatching (
   MbTypeRepr()
 ) where
 
-import Data.Typeable
-import Data.Type.List
-import Data.Type.List.Map
+--import Data.Typeable
 import Language.Haskell.TH hiding (Name)
 import qualified Language.Haskell.TH as TH
 import Control.Monad.State
-import Control.Monad.Identity
+--import Control.Monad.Identity
 
+import Data.Type.HList
 import Data.Binding.Hobbits.Internal.Name
 import Data.Binding.Hobbits.Internal.Mb
 import Data.Binding.Hobbits.Internal.Closed
 
 
 {-| Just like 'mapNamesPf', except uses the NuMatching class. -}
-mapNames :: NuMatching a => MapC Name ctx -> MapC Name ctx -> a -> a
+mapNames :: NuMatching a => HList Name ctx -> HList Name ctx -> a -> a
 mapNames = mapNamesPf nuMatchingProof
 
 
@@ -117,7 +116,7 @@ data NuMatchingObj a = NuMatching a => NuMatchingObj ()
 
 -- the NuMatchingList class, for saying that NuMatching holds for a context of types
 class NuMatchingList args where
-    nuMatchingListProof :: MapC NuMatchingObj args
+    nuMatchingListProof :: HList NuMatchingObj args
 
 instance NuMatchingList Nil where
     nuMatchingListProof = Nil
@@ -136,11 +135,11 @@ instance (NuMatching1 f, NuMatching a) => NuMatching (f a) where
     nuMatchingProof = nuMatchingProof1 nuMatchingProof
 -}
 
-instance (NuMatching1 f, NuMatchingList ctx) => NuMatching (MapC f ctx) where
+instance (NuMatching1 f, NuMatchingList ctx) => NuMatching (HList f ctx) where
     nuMatchingProof = MbTypeReprData $ MkMbTypeReprData $ helper nuMatchingListProof where
         helper :: NuMatching1 f =>
-                  MapC NuMatchingObj args -> MapC Name ctx1 -> MapC Name ctx1 ->
-                  MapC f args -> MapC f args
+                  HList NuMatchingObj args -> HList Name ctx1 -> HList Name ctx1 ->
+                  HList f args -> HList f args
         helper Nil c1 c2 Nil = Nil
         helper (proofs :> NuMatchingObj ()) c1 c2 (elems :> (elem :: f a)) =
             case nuMatchingProof1 :: NuMatchingObj (f a) of
@@ -165,7 +164,7 @@ thd3 (_,_,z) = z
 
 type Names = (TH.Name, TH.Name, TH.Name, TH.Name)
 
-mapNamesType a = [t| forall ctx. MapC Name ctx -> MapC Name ctx -> $a -> $a |]
+mapNamesType a = [t| forall ctx. HList Name ctx -> HList Name ctx -> $a -> $a |]
 
 {-|
   Template Haskell function for creating NuMatching instances for (G)ADTs.
