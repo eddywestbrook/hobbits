@@ -16,6 +16,8 @@ Category:            Data Structures
 Cabal-version: >= 1.6.0.1
 Build-Type:    Simple
 
+extra-source-files: CHANGELOG
+
 Library
   Build-Depends: base >= 4.7 && < 4.9
   Build-Depends: template-haskell >= 2.9 && < 2.11
