@@ -17,8 +17,8 @@ Cabal-version: >= 1.6.0.1
 Build-Type:    Simple
 
 Library
-  Build-Depends: base == 4.8.*
-  Build-Depends: template-haskell == 2.10.*
+  Build-Depends: base >= 4.7 && < 4.9
+  Build-Depends: template-haskell >= 2.9 && < 2.11
 
   Build-Depends: syb
   Build-Depends: mtl
