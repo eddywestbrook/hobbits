@@ -80,8 +80,14 @@ clMbApply (Cl f) (Cl a) = Cl (mbApply f a)
 -- | @noClosedNames@ encodes the hobbits guarantee that no name can escape its
 -- multi-binding.
 noClosedNames :: Cl (Name a) -> b
-noClosedNames _ = error $ "... Clever girl!" ++
-  "The `noClosedNames' invariant has somehow been violated."
+noClosedNames (Cl n) =
+  -- We compare n to itself to force evaluation, in case the body of
+  -- the closed value is non-terminating...
+  case cmpName n n of
+    _ ->
+      error $
+      "... Clever girl!" ++
+      "The `noClosedNames' invariant has somehow been violated."
 
 -- | @mkClosed = cl@
 mkClosed = cl
