@@ -108,12 +108,12 @@ fvUnion MNil (fvs2 :>: fv2) = case fvUnion MNil fvs2 of
   FVUnionRet fvs f1 f2 -> case elemMC fv2 fvs of
     Nothing -> FVUnionRet (fvs :>: fv2)
                (\(xs :>: _) -> f1 xs) (\(xs :>: x) -> f2 xs :>: x)
-    Just idx -> FVUnionRet fvs f1 (\xs -> f2 xs :>: C.hlistLookup idx xs)
+    Just idx -> FVUnionRet fvs f1 (\xs -> f2 xs :>: C.mapRListLookup idx xs)
 fvUnion (fvs1 :>: fv1) fvs2 = case fvUnion fvs1 fvs2 of
   FVUnionRet fvs f1 f2 -> case elemMC fv1 fvs of
     Nothing -> FVUnionRet (fvs :>: fv1)
                (\(xs :>: x) -> f1 xs :>: x) (\(xs :>: _) -> f2 xs)
-    Just idx -> FVUnionRet fvs (\xs -> f1 xs :>: C.hlistLookup idx xs) f2
+    Just idx -> FVUnionRet fvs (\xs -> f1 xs :>: C.mapRListLookup idx xs) f2
 
 elemMC :: MbLName c a -> FVList c fvs -> Maybe (Member fvs a)
 elemMC _ MNil = Nothing
@@ -133,7 +133,7 @@ data STerm c a where
 
 skelSubst :: STerm c a -> MapRList Name c -> DTerm a
 skelSubst (SWeaken f db) names = skelSubst db $ f names
-skelSubst (SVar inC) names = TVar $ C.hlistLookup inC names
+skelSubst (SVar inC) names = TVar $ C.mapRListLookup inC names
 skelSubst (SDVar dTVar) _ = TDVar dTVar
 skelSubst (SApp db1 db2) names = TApp (skelSubst db1 names) (skelSubst db2 names)
 
@@ -175,7 +175,7 @@ fvSSepLTVarsH lc c (fvs :>: fv@(MbLName n)) = case fvSSepLTVarsH lc c fvs of
   SepRet m f -> case raiseAppName (C.mkMonoAppend c lc) n of
     Left idx ->
       SepRet m (\xs ->
-                 f xs :>: C.hlistLookup (C.weakenMemberL (proxyOfMapRList m) idx) xs)
+                 f xs :>: C.mapRListLookup (C.weakenMemberL (proxyOfMapRList m) idx) xs)
     Right n ->
       SepRet (m :>: MbLName n)
       (\xs -> case C.splitMapRList c' lc xs of

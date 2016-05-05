@@ -127,10 +127,10 @@ singleton :: f a -> MapRList f (RNil :> a)
 singleton x = MNil :>: x
 
 -- | Look up an element of a 'MapRList' vector using a 'Member' proof.
-hlistLookup :: Member c a -> MapRList f c -> f a
-hlistLookup Member_Base (_ :>: x) = x
-hlistLookup (Member_Step mem') (mc :>: _) = hlistLookup mem' mc
---hlistLookup _ _ = error "Should not happen! (hlistLookup)"
+mapRListLookup :: Member c a -> MapRList f c -> f a
+mapRListLookup Member_Base (_ :>: x) = x
+mapRListLookup (Member_Step mem') (mc :>: _) = mapRListLookup mem' mc
+--mapRListLookup _ _ = error "Should not happen! (mapRListLookup)"
 
 -- | Map a function on all elements of a 'MapRList' vector.
 mapMapRList :: (forall x. f x -> g x) -> MapRList f c -> MapRList g c
