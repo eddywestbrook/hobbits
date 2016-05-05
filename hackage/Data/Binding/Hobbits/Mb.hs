@@ -1,4 +1,4 @@
-{-# LANGUAGE GADTs, TypeOperators, FlexibleInstances, ViewPatterns #-}
+{-# LANGUAGE GADTs, TypeOperators, FlexibleInstances, ViewPatterns, DataKinds #-}
 
 -- |
 -- Module      : Data.Binding.Hobbits.Mb
@@ -38,7 +38,7 @@ import Data.Proxy (Proxy(..))
 
 import Unsafe.Coerce (unsafeCoerce)
 
-import Data.Type.HList
+import Data.Type.RList
 
 import Data.Binding.Hobbits.Internal.Name
 import Data.Binding.Hobbits.Internal.Mb
@@ -49,7 +49,7 @@ import Data.Binding.Hobbits.Internal.Mb
 -------------------------------------------------------------------------------
 
 -- | A @Binding@ is simply a multi-binding that binds one name
-type Binding a = Mb (Nil :> a)
+type Binding a = Mb (RNil :> a)
 
 -- note: we reverse l to show the inner-most bindings last
 instance Show a => Show (Mb c a) where
@@ -61,18 +61,18 @@ instance Show a => Show (Mb c a) where
   body is the result of @f n@.
 -}
 nu :: (Name a -> b) -> Binding a b
-nu f = MkMbFun (Nil :> Proxy) (\(Nil :> n) -> f n)
+nu f = MkMbFun (MNil :>: Proxy) (\(MNil :>: n) -> f n)
 
 {-|
   The expression @nuMulti p f@ creates a multi-binding of zero or more
   names, one for each element of the vector @p@. The bound names are
   passed the names to @f@, which returns the body of the
-  multi-binding.  The argument @p@, of type @'HList' f ctx@, acts as a
+  multi-binding.  The argument @p@, of type @'MapRList' f ctx@, acts as a
   \"phantom\" argument, used to reify the list of types @ctx@ at the
   term level; thus it is unimportant what the type function @f@ is.
 -}
-nuMulti :: HList f ctx -> (HList Name ctx -> b) -> Mb ctx b
-nuMulti proxies f = MkMbFun (mapHList (const Proxy) proxies) f
+nuMulti :: MapRList f ctx -> (MapRList Name ctx -> b) -> Mb ctx b
+nuMulti proxies f = MkMbFun (mapMapRList (const Proxy) proxies) f
 
 -- | @nus = nuMulti@
 nus x = nuMulti x
@@ -95,12 +95,15 @@ nus x = nuMulti x
 -}
 mbNameBoundP :: Mb ctx (Name a) -> Either (Member ctx a) (Name a)
 mbNameBoundP (ensureFreshPair -> (names, n)) = helper names n where
-    helper :: HList Name c -> Name a -> Either (Member c a) (Name a)
-    helper Nil n = Right n
-    helper (names :> (MkName i)) (MkName j) | i == j = unsafeCoerce $ Left Member_Base
-    helper (names :> _) n = case helper names n of
-                              Left memb -> Left (Member_Step memb)
-                              Right n -> Right n
+    helper :: MapRList Name c -> Name a -> Either (Member c a) (Name a)
+    helper MNil n = Right n
+    helper (names :>: (MkName i)) (MkName j)
+      | i == j =
+        unsafeCoerce $ Left Member_Base
+    helper (names :>: _) n =
+      case helper names n of
+        Left memb -> Left (Member_Step memb)
+        Right n -> Right n
 -- old implementation with lists
 {-
 case elemIndex n names of
@@ -129,30 +132,31 @@ mbCmpName b1 b2 = case (mbNameBoundP b1, mbNameBoundP b2) of
 -------------------------------------------------------------------------------
 
 -- | Creates an empty binding that binds 0 names.
-emptyMb :: a -> Mb Nil a
-emptyMb body = MkMbFun Nil (\_ -> body)
+emptyMb :: a -> Mb RNil a
+emptyMb body = MkMbFun MNil (\_ -> body)
 
 {-|
   Eliminates an empty binding, returning its body. Note that
   @elimEmptyMb@ is the inverse of @emptyMb@.
 -}
-elimEmptyMb :: Mb Nil a -> a
+elimEmptyMb :: Mb RNil a -> a
 elimEmptyMb (ensureFreshPair -> (_, body)) = body
 
 
 -- Extract the proxy objects from an Mb inside of a fresh function
-freshFunctionProxies :: HList Proxy ctx1 -> (HList Name ctx1 -> Mb ctx2 a) ->
-                        HList Proxy ctx2
+freshFunctionProxies :: MapRList Proxy ctx1 -> (MapRList Name ctx1 -> Mb ctx2 a) ->
+                        MapRList Proxy ctx2
 freshFunctionProxies proxies1 f =
-    case f (mapHList (const $ MkName 0) proxies1) of
+    case f (mapMapRList (const $ MkName 0) proxies1) of
       MkMbFun proxies2 _ -> proxies2
-      MkMbPair _ ns _ -> mapHList (const Proxy) ns
+      MkMbPair _ ns _ -> mapMapRList (const Proxy) ns
 
 
 -- README: inner-most bindings come FIRST
 -- | Combines a binding inside another binding into a single binding.
 mbCombine :: Mb c1 (Mb c2 b) -> Mb (c1 :++: c2) b
-mbCombine (MkMbPair tRepr1 l1 (MkMbPair tRepr2 l2 b)) = MkMbPair tRepr2 (appendHList l1 l2) b
+mbCombine (MkMbPair tRepr1 l1 (MkMbPair tRepr2 l2 b)) =
+  MkMbPair tRepr2 (appendMapRList l1 l2) b
 mbCombine (ensureFreshFun -> (proxies1, f1)) =
     -- README: we pass in Names with integer value 0 here in order to
     -- get out the proxies for the inner-most bindings; this is "safe"
@@ -160,33 +164,33 @@ mbCombine (ensureFreshFun -> (proxies1, f1)) =
     -- themselves
     let proxies2 = freshFunctionProxies proxies1 f1 in
     MkMbFun
-    (appendHList proxies1 proxies2)
+    (appendMapRList proxies1 proxies2)
     (\ns ->
-         let (ns1, ns2) = splitHList Proxy proxies2 ns in
+         let (ns1, ns2) = splitMapRList Proxy proxies2 ns in
          let (_, f2) = ensureFreshFun (f1 ns1) in
          f2 ns2)
 
 
 {-|
   Separates a binding into two nested bindings. The first argument, of
-  type @'HList' any c2@, is a \"phantom\" argument to indicate how
+  type @'MapRList' any c2@, is a \"phantom\" argument to indicate how
   the context @c@ should be split.
 -}
-mbSeparate :: HList any ctx2 -> Mb (ctx1 :++: ctx2) a ->
+mbSeparate :: MapRList any ctx2 -> Mb (ctx1 :++: ctx2) a ->
               Mb ctx1 (Mb ctx2 a)
 mbSeparate c2 (MkMbPair tRepr ns a) =
     MkMbPair (MbTypeReprMb tRepr) ns1 (MkMbPair tRepr ns2 a) where
-        (ns1, ns2) = splitHList Proxy c2 ns
+        (ns1, ns2) = splitMapRList Proxy c2 ns
 mbSeparate c2 (MkMbFun proxies f) =
-    MkMbFun proxies1 (\ns1 -> MkMbFun proxies2 (\ns2 -> f (appendHList ns1 ns2)))
+    MkMbFun proxies1 (\ns1 -> MkMbFun proxies2 (\ns2 -> f (appendMapRList ns1 ns2)))
         where
-          (proxies1, proxies2) = splitHList Proxy c2 proxies
+          (proxies1, proxies2) = splitMapRList Proxy c2 proxies
 
 
 -- | Returns a proxy object that enumerates all the types in ctx.
-mbToProxy :: Mb ctx a -> HList Proxy ctx
+mbToProxy :: Mb ctx a -> MapRList Proxy ctx
 mbToProxy (MkMbFun proxies _) = proxies
-mbToProxy (MkMbPair _ ns _) = mapHList (\_ -> Proxy) ns
+mbToProxy (MkMbPair _ ns _) = mapMapRList (\_ -> Proxy) ns
 
 
 {-|
@@ -253,34 +257,36 @@ instance TypeCtx ctx => Applicative (Mb ctx) where
 
 > (<*>) :: Mb ctx (a -> b) -> Mb ctx a -> Mb ctx b
 > (<*>) f a =
->     nuWithElimMulti ('Nil' :> f :> a)
->                     (\_ ('Nil' :> 'Identity' f' :> 'Identity' a') -> f' a')
+>     nuWithElimMulti ('MNil' :>: f :>: a)
+>                     (\_ ('MNil' :>: 'Identity' f' :>: 'Identity' a') -> f' a')
 -}
 nuMultiWithElim :: TypeCtx ctx =>
-                   (HList Name ctx -> HList Identity args -> b) ->
-                   HList (Mb ctx) args -> Mb ctx b
+                   (MapRList Name ctx -> MapRList Identity args -> b) ->
+                   MapRList (Mb ctx) args -> Mb ctx b
 nuMultiWithElim f args =
   MkMbFun typeCtxProxies
-          (\ns -> f ns $ mapHList (\arg -> Identity $ snd (ensureFreshFun arg) ns) args)
+          (\ns ->
+            f ns $ mapMapRList (\arg ->
+                                 Identity $ snd (ensureFreshFun arg) ns) args)
 
 
 {-|
   Similar to 'nuMultiWithElim' but binds only one name.
 -}
-nuWithElim :: (Name a -> HList Identity args -> b) ->
-              HList (Mb (Nil :> a)) args ->
+nuWithElim :: (Name a -> MapRList Identity args -> b) ->
+              MapRList (Mb (RNil :> a)) args ->
               Binding a b
 nuWithElim f args =
-    nuMultiWithElim (\(Nil :> n) -> f n) args
+    nuMultiWithElim (\(MNil :>: n) -> f n) args
 
 
 {-|
   Similar to 'nuMultiWithElim' but takes only one argument
 -}
-nuMultiWithElim1 :: TypeCtx ctx => (HList Name ctx -> arg -> b) -> Mb ctx arg ->
+nuMultiWithElim1 :: TypeCtx ctx => (MapRList Name ctx -> arg -> b) -> Mb ctx arg ->
                     Mb ctx b
 nuMultiWithElim1 f arg =
-    nuMultiWithElim (\names (Nil :> Identity arg) -> f names arg) (Nil :> arg)
+    nuMultiWithElim (\names (MNil :>: Identity arg) -> f names arg) (MNil :>: arg)
 
 
 {-|
@@ -289,4 +295,4 @@ nuMultiWithElim1 f arg =
 -}
 nuWithElim1 :: (Name a -> arg -> b) -> Binding a arg -> Binding a b
 nuWithElim1 f arg =
-  nuWithElim (\n (Nil :> Identity arg) -> f n arg) (Nil :> arg)
+  nuWithElim (\n (MNil :>: Identity arg) -> f n arg) (MNil :>: arg)

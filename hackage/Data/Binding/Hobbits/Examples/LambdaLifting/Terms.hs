@@ -1,6 +1,6 @@
 {-# LANGUAGE EmptyDataDecls #-}
 {-# LANGUAGE TemplateHaskell, Rank2Types, QuasiQuotes, ViewPatterns #-}
-{-# LANGUAGE GADTs, KindSignatures #-}
+{-# LANGUAGE GADTs, KindSignatures, DataKinds #-}
 
 -- |
 -- Module      : Data.Binding.Hobbits.SuperComb
@@ -20,13 +20,13 @@ module Data.Binding.Hobbits.Examples.LambdaLifting.Terms
   ) where
 
 import Data.Binding.Hobbits
-import qualified Data.Type.HList as C
+import qualified Data.Type.RList as C
 
 -- dummy datatypes for distinguishing Decl names from Lam names
 data L a
 data D a
 
--- to make a function for HList (for pretty)
+-- to make a function for MapRList (for pretty)
 newtype StringF x = StringF String
 unStringF (StringF str) = str
 
@@ -52,14 +52,14 @@ lam f = Lam $ nu (f . Var)
 -- pretty print terms
 tpretty :: Term a -> String
 tpretty t = pretty' (emptyMb t) C.empty 0
-  where pretty' :: Mb c (Term a) -> HList StringF c -> Int -> String
+  where pretty' :: Mb c (Term a) -> MapRList StringF c -> Int -> String
         pretty' [nuP| Var b |] varnames n =
             case mbNameBoundP b of
               Left pf  -> unStringF (C.hlistLookup pf varnames)
               Right n -> "(free-var " ++ show n ++ ")"
         pretty' [nuP| Lam b |] varnames n =
             let x = "x" ++ show n in
-            "(\\" ++ x ++ "." ++ pretty' (mbCombine b) (varnames :> (StringF x)) (n+1) ++ ")"
+            "(\\" ++ x ++ "." ++ pretty' (mbCombine b) (varnames :>: (StringF x)) (n+1) ++ ")"
         pretty' [nuP| App b1 b2 |] varnames n =
             "(" ++ pretty' b1 varnames n ++ " " ++ pretty' b2 varnames n ++ ")"
 
@@ -98,7 +98,7 @@ instance Show (Decls a) where show = decls_pretty
 pretty :: DTerm a -> String
 pretty t = mpretty (emptyMb t) C.empty
 
-mpretty :: Mb c (DTerm a) -> HList StringF c -> String
+mpretty :: Mb c (DTerm a) -> MapRList StringF c -> String
 mpretty [nuP| TVar b |] varnames =
     mprettyName (mbNameBoundP b) varnames
 mpretty [nuP| TDVar b |] varnames =
@@ -116,18 +116,18 @@ decls_pretty :: Decls a -> String
 decls_pretty decls =
     "let\n" ++ (mdecls_pretty (emptyMb decls) C.empty 0)
 
-mdecls_pretty :: Mb c (Decls a) -> HList StringF c -> Int -> String
+mdecls_pretty :: Mb c (Decls a) -> MapRList StringF c -> Int -> String
 mdecls_pretty [nuP| Decls_Base t |] varnames n =
     "in " ++ (mpretty t varnames)
 mdecls_pretty [nuP| Decls_Cons decl rest |] varnames n =
     let fname = "F" ++ show n in
     fname ++ " " ++ (mdecl_pretty decl varnames 0) ++ "\n"
-    ++ mdecls_pretty (mbCombine rest) (varnames :> (StringF fname)) (n+1)
+    ++ mdecls_pretty (mbCombine rest) (varnames :>: (StringF fname)) (n+1)
 
-mdecl_pretty :: Mb c (Decl a) -> HList StringF c -> Int -> String
+mdecl_pretty :: Mb c (Decl a) -> MapRList StringF c -> Int -> String
 mdecl_pretty [nuP| Decl_One t|] varnames n =
   let vname = "x" ++ show n in
-  vname ++ " = " ++ mpretty (mbCombine t) (varnames :> StringF vname)
+  vname ++ " = " ++ mpretty (mbCombine t) (varnames :>: StringF vname)
 mdecl_pretty [nuP| Decl_Cons d|] varnames n =
   let vname = "x" ++ show n in
-  vname ++ " " ++ mdecl_pretty (mbCombine d) (varnames :> StringF vname) (n+1)
+  vname ++ " " ++ mdecl_pretty (mbCombine d) (varnames :>: StringF vname) (n+1)

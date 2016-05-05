@@ -37,7 +37,7 @@ module Data.Binding.Hobbits (
 
   -- * Ancilliary modules
   module Data.Proxy, module Data.Type.Equality,
-  module Data.Type.HList,
+  module Data.Type.RList,
   -- | Type lists track the types of bound variables.
   module Data.Binding.Hobbits.NuMatching
   -- | The "Data.Binding.Hobbits.NuMatching" module exposes the
@@ -47,7 +47,7 @@ module Data.Binding.Hobbits (
 
 import Data.Proxy
 import Data.Type.Equality
-import Data.Type.HList
+import Data.Type.RList
 import Data.Binding.Hobbits.Mb
 import Data.Binding.Hobbits.Closed
 import Data.Binding.Hobbits.QQ

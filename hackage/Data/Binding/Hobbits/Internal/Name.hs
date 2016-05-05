@@ -26,7 +26,7 @@ import Unsafe.Coerce (unsafeCoerce)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import System.IO.Unsafe (unsafePerformIO)
 
-import Data.Type.HList
+import Data.Type.RList
 
 
 -- | A @Name a@ is a bound name that is associated with type @a@.
@@ -35,9 +35,9 @@ newtype Name a = MkName Int deriving (Typeable, Eq)
 instance Show (Name a) where
   showsPrec _ (MkName n) = showChar '#' . shows n . showChar '#'
 
-instance Show (HList Name c) where
-    show names = "[" ++ (concat $ intersperse "," $ hlistToList $
-                        mapHList (Constant . show) names) ++ "]"
+instance Show (MapRList Name c) where
+    show names = "[" ++ (concat $ intersperse "," $ mapRListToList $
+                        mapMapRList (Constant . show) names) ++ "]"
 
 
 -------------------------------------------------------------------------------
@@ -85,11 +85,11 @@ unsafeLookupC n = case memberFromLen n of
 
 
 -- building a proxy for each type in some unknown context
-data ExProxy where ExProxy :: HList Proxy ctx -> ExProxy
+data ExProxy where ExProxy :: MapRList Proxy ctx -> ExProxy
 proxyFromLen :: Int -> ExProxy
-proxyFromLen 0 = ExProxy Nil
+proxyFromLen 0 = ExProxy MNil
 proxyFromLen n = case proxyFromLen (n - 1) of
-                   ExProxy proxy -> ExProxy (proxy :> Proxy)
+                   ExProxy proxy -> ExProxy (proxy :>: Proxy)
 
 -- -- unsafely building a proxy for each type in ctx from the length n
 -- -- of ctx; this is only safe when we know the length of ctx = n

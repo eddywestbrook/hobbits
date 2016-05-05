@@ -1,4 +1,6 @@
-{-# LANGUAGE GADTs, RankNTypes, TypeOperators, ViewPatterns, TypeFamilies, FlexibleInstances, FlexibleContexts, TemplateHaskell, UndecidableInstances, ScopedTypeVariables #-}
+{-# LANGUAGE GADTs, RankNTypes, TypeOperators, ViewPatterns, TypeFamilies #-}
+{-# LANGUAGE FlexibleInstances, FlexibleContexts, UndecidableInstances #-}
+{-# LANGUAGE TemplateHaskell, ScopedTypeVariables, DataKinds #-}
 
 -- |
 -- Module      : Data.Binding.Hobbits.NuMatching
@@ -30,14 +32,14 @@ import qualified Language.Haskell.TH as TH
 import Control.Monad.State
 --import Control.Monad.Identity
 
-import Data.Type.HList
+import Data.Type.RList
 import Data.Binding.Hobbits.Internal.Name
 import Data.Binding.Hobbits.Internal.Mb
 import Data.Binding.Hobbits.Internal.Closed
 
 
 {-| Just like 'mapNamesPf', except uses the NuMatching class. -}
-mapNames :: NuMatching a => HList Name ctx -> HList Name ctx -> a -> a
+mapNames :: NuMatching a => MapRList Name ctx -> MapRList Name ctx -> a -> a
 mapNames = mapNamesPf nuMatchingProof
 
 
@@ -116,13 +118,13 @@ data NuMatchingObj a = NuMatching a => NuMatchingObj ()
 
 -- the NuMatchingList class, for saying that NuMatching holds for a context of types
 class NuMatchingList args where
-    nuMatchingListProof :: HList NuMatchingObj args
+    nuMatchingListProof :: MapRList NuMatchingObj args
 
-instance NuMatchingList Nil where
-    nuMatchingListProof = Nil
+instance NuMatchingList RNil where
+    nuMatchingListProof = MNil
 
 instance (NuMatchingList args, NuMatching a) => NuMatchingList (args :> a) where
-    nuMatchingListProof = nuMatchingListProof :> NuMatchingObj ()
+    nuMatchingListProof = nuMatchingListProof :>: NuMatchingObj ()
 
 
 class NuMatching1 f where
@@ -135,16 +137,16 @@ instance (NuMatching1 f, NuMatching a) => NuMatching (f a) where
     nuMatchingProof = nuMatchingProof1 nuMatchingProof
 -}
 
-instance (NuMatching1 f, NuMatchingList ctx) => NuMatching (HList f ctx) where
+instance (NuMatching1 f, NuMatchingList ctx) => NuMatching (MapRList f ctx) where
     nuMatchingProof = MbTypeReprData $ MkMbTypeReprData $ helper nuMatchingListProof where
         helper :: NuMatching1 f =>
-                  HList NuMatchingObj args -> HList Name ctx1 -> HList Name ctx1 ->
-                  HList f args -> HList f args
-        helper Nil c1 c2 Nil = Nil
-        helper (proofs :> NuMatchingObj ()) c1 c2 (elems :> (elem :: f a)) =
+                  MapRList NuMatchingObj args -> MapRList Name ctx1 ->
+                  MapRList Name ctx1 -> MapRList f args -> MapRList f args
+        helper MNil c1 c2 MNil = MNil
+        helper (proofs :>: NuMatchingObj ()) c1 c2 (elems :>: (elem :: f a)) =
             case nuMatchingProof1 :: NuMatchingObj (f a) of
               NuMatchingObj () ->
-                  (helper proofs c1 c2 elems) :>
+                  (helper proofs c1 c2 elems) :>:
                   mapNames c1 c2 elem
 
 
@@ -164,7 +166,7 @@ thd3 (_,_,z) = z
 
 type Names = (TH.Name, TH.Name, TH.Name, TH.Name)
 
-mapNamesType a = [t| forall ctx. HList Name ctx -> HList Name ctx -> $a -> $a |]
+mapNamesType a = [t| forall ctx. MapRList Name ctx -> MapRList Name ctx -> $a -> $a |]
 
 {-|
   Template Haskell function for creating NuMatching instances for (G)ADTs.

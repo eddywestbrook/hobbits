@@ -21,14 +21,14 @@ module Data.Binding.Hobbits.Internal.Mb where
 import Data.Typeable
 import Data.Proxy
 import Data.Type.Equality
-import Data.Type.HList
+import Data.Type.RList
 
 import Data.Binding.Hobbits.Internal.Name
 
 
 {-|
   An @Mb ctx b@ is a multi-binding that binds one name for each type
-  in @ctx@, where @ctx@ has the form @'Nil' ':>' t1 ':>' ... ':>' tn@.
+  in @ctx@, where @ctx@ has the form @'RNil' ':>' t1 ':>' ... ':>' tn@.
   Internally, multi-bindings are represented either as "fresh
   functions", which are functions that quantify over all fresh names
   that have not been used before and map them to the body of the
@@ -38,8 +38,8 @@ import Data.Binding.Hobbits.Internal.Name
   that the names given in the pair can be relaced by fresher names.
 -}
 data Mb ctx b
-    = MkMbFun (HList Proxy ctx) (HList Name ctx -> b)
-    | MkMbPair (MbTypeRepr b) (HList Name ctx) b
+    = MkMbFun (MapRList Proxy ctx) (MapRList Name ctx -> b)
+    | MkMbPair (MbTypeRepr b) (MapRList Name ctx) b
     deriving Typeable
 
 
@@ -60,7 +60,7 @@ data MbTypeRepr a where
     MbTypeReprData :: MbTypeReprData a -> MbTypeRepr a
 
 data MbTypeReprData a =
-    MkMbTypeReprData (forall ctx. HList Name ctx -> HList Name ctx -> a -> a)
+    MkMbTypeReprData (forall ctx. MapRList Name ctx -> MapRList Name ctx -> a -> a)
 
 
 {-|
@@ -69,9 +69,9 @@ data MbTypeReprData a =
   listed in @ns'@. This is similar to the name-swapping of Nominal
   Logic, except that the swapping does not go both ways.
 -}
-mapNamesPf :: MbTypeRepr a -> HList Name ctx -> HList Name ctx -> a -> a
-mapNamesPf MbTypeReprName Nil Nil n = n
-mapNamesPf MbTypeReprName (names :> m) (names' :> m') n =
+mapNamesPf :: MbTypeRepr a -> MapRList Name ctx -> MapRList Name ctx -> a -> a
+mapNamesPf MbTypeReprName MNil MNil n = n
+mapNamesPf MbTypeReprName (names :>: m) (names' :>: m') n =
     case cmpName m n of
       Just Refl -> m'
       Nothing -> mapNamesPf MbTypeReprName names names' n
@@ -88,14 +88,14 @@ mapNamesPf (MbTypeReprData (MkMbTypeReprData mapFun)) names names' x =
 
 
 -- | Ensures a multi-binding is in "fresh function" form
-ensureFreshFun :: Mb ctx a -> (HList Proxy ctx, HList Name ctx -> a)
+ensureFreshFun :: Mb ctx a -> (MapRList Proxy ctx, MapRList Name ctx -> a)
 ensureFreshFun (MkMbFun proxies f) = (proxies, f)
 ensureFreshFun (MkMbPair tRepr ns body) =
-    (mapHList (\_ -> Proxy) ns, \ns' -> mapNamesPf tRepr ns ns' body)
+    (mapMapRList (\_ -> Proxy) ns, \ns' -> mapNamesPf tRepr ns ns' body)
 
 -- | Ensures a multi-binding is in "fresh pair" form
-ensureFreshPair :: Mb ctx a -> (HList Name ctx, a)
+ensureFreshPair :: Mb ctx a -> (MapRList Name ctx, a)
 ensureFreshPair (MkMbPair _ ns body) = (ns, body)
 ensureFreshPair (MkMbFun proxies f) =
-    let ns = mapHList (MkName . fresh_name) proxies in
+    let ns = mapMapRList (MkName . fresh_name) proxies in
     (ns, f ns)

@@ -1,4 +1,5 @@
-{-# LANGUAGE GADTs, TypeOperators, FlexibleInstances, TemplateHaskell, ViewPatterns, QuasiQuotes #-}
+{-# LANGUAGE GADTs, TypeOperators, FlexibleInstances, TemplateHaskell #-}
+{-# LANGUAGE ViewPatterns, QuasiQuotes, DataKinds #-}
 
 -- |
 -- Module      : Data.Binding.Hobbits.Mb
@@ -18,7 +19,7 @@
 
 module Data.Binding.Hobbits.Liftable where
 
-import Data.Type.HList
+import Data.Type.RList
 import Data.Binding.Hobbits.Internal.Mb
 import Data.Binding.Hobbits.QQ
 import Data.Binding.Hobbits.Closed

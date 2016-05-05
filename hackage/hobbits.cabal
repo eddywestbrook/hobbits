@@ -35,7 +35,7 @@ Library
 
   Extensions: CPP
 
-  Exposed-Modules: Data.Type.HList,
+  Exposed-Modules: Data.Type.RList,
 
                    Data.Binding.Hobbits,
                    Data.Binding.Hobbits.Mb,

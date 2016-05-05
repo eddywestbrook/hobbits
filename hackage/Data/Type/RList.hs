@@ -1,10 +1,10 @@
 {-# LANGUAGE TypeOperators, EmptyDataDecls, RankNTypes #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeFamilies, DataKinds, KindSignatures #-}
 {-# LANGUAGE GADTs #-}
 
 -- |
--- Module      : Data.Type.HList
--- Copyright   : (c) 2011 Edwin Westbrook, Nicolas Frisby, and Paul Brauner
+-- Module      : Data.Type.RList
+-- Copyright   : (c) 2016 Edwin Westbrook
 --
 -- License     : BSD3
 --
@@ -12,12 +12,12 @@
 -- Stability   : experimental
 -- Portability : GHC
 --
--- A /type list/ contains types as elements. We use GADT proofs terms to
--- establish membership and append relations. A @Data.Type.HList.HList@ @f@
--- is a vector indexed by a type list, where @f :: * -> *@ is applied to each
--- type element.
+-- A /right list/, or 'RList', is a list where cons adds to the end, or the
+-- right-hand side, of a list. This is useful conceptually for contexts of
+-- name-bindings, where the most recent name-binding is intuitively at the end
+-- of the context.
 
-module Data.Type.HList where
+module Data.Type.RList where
 
 import Data.Type.Equality ((:~:)(..))
 import Data.Proxy (Proxy(..))
@@ -25,14 +25,16 @@ import Data.Functor.Constant
 import Data.Typeable
 
 -------------------------------------------------------------------------------
--- type-level lists
+-- Right-lists as a datatype
 -------------------------------------------------------------------------------
 
-data Nil deriving Typeable
-data r :> a deriving Typeable; infixl 5 :>
+data RList a
+  = RNil
+  | (RList a) :> a
 
-type family (r1 :++: r2); infixr 5 :++:
-type instance r :++: Nil = r
+type family ((r1 :: RList *) :++: (r2 :: RList *)) :: RList *
+infixr 5 :++:
+type instance r :++: RNil = r
 type instance r1 :++: r2 :> a = (r1 :++: r2) :> a
 
 proxyCons :: Proxy r -> f a -> Proxy (r :> a)
@@ -85,7 +87,7 @@ membersEq _ _ = Nothing
   An @Append ctx1 ctx2 ctx@ is a \"proof\" that @ctx = ctx1 ':++:' ctx2@.
 -}
 data Append ctx1 ctx2 ctx where
-  Append_Base :: Append ctx Nil ctx
+  Append_Base :: Append ctx RNil ctx
   Append_Step :: Append ctx1 ctx2 ctx -> Append ctx1 (ctx2 :> a) (ctx :> a)
 
 -- -- | Appends two 'Append' proofs.
@@ -109,95 +111,98 @@ data Append ctx1 ctx2 ctx where
 -------------------------------------------------------------------------------
 
 {-|
-  A @HList f c@ is a vector with exactly one element of type @f a@ for
-  each type @a@ in the type list @c@.
+  A @MapRList f r@ is a vector with exactly one element of type @f a@ for
+  each type @a@ in the type 'RList' @r@.
 -}
-data HList f c where
-  Nil :: HList f Nil -- Creates an empty vector
-  (:>) :: HList f c -> f a -> HList f (c :> a) -- Appends an element to the end of a vector
+data MapRList f c where
+  MNil :: MapRList f RNil
+  (:>:) :: MapRList f c -> f a -> MapRList f (c :> a)
 
--- | Create an empty 'HList' vector.
-empty :: HList f Nil
-empty = Nil
+-- | Create an empty 'MapRList' vector.
+empty :: MapRList f RNil
+empty = MNil
 
--- | Create a singleton 'HList' vector.
-singleton :: f a -> HList f (Nil :> a)
-singleton x = Nil :> x
+-- | Create a singleton 'MapRList' vector.
+singleton :: f a -> MapRList f (RNil :> a)
+singleton x = MNil :>: x
 
--- | Look up an element of a 'HList' vector using a 'Member' proof.
-hlistLookup :: Member c a -> HList f c -> f a
-hlistLookup Member_Base (_ :> x) = x
-hlistLookup (Member_Step mem') (mc :> _) = hlistLookup mem' mc
+-- | Look up an element of a 'MapRList' vector using a 'Member' proof.
+hlistLookup :: Member c a -> MapRList f c -> f a
+hlistLookup Member_Base (_ :>: x) = x
+hlistLookup (Member_Step mem') (mc :>: _) = hlistLookup mem' mc
 --hlistLookup _ _ = error "Should not happen! (hlistLookup)"
 
--- | Map a function on all elements of a 'HList' vector.
-mapHList :: (forall x. f x -> g x) -> HList f c -> HList g c
-mapHList _ Nil = Nil
-mapHList f (mc :> x) = mapHList f mc :> f x
+-- | Map a function on all elements of a 'MapRList' vector.
+mapMapRList :: (forall x. f x -> g x) -> MapRList f c -> MapRList g c
+mapMapRList _ MNil = MNil
+mapMapRList f (mc :>: x) = mapMapRList f mc :>: f x
 
--- | Map a binary function on all pairs of elements of two 'HList' vectors.
-mapHList2 :: (forall x. f x -> g x -> h x) -> HList f c -> HList g c -> HList h c
-mapHList2 _ Nil Nil = Nil
-mapHList2 f (xs :> x) (ys :> y) = mapHList2 f xs ys :> f x y
-mapHList2 _ _ _ = error "Something is terribly wrong in mapHList2: this case should not happen!"
+-- | Map a binary function on all pairs of elements of two 'MapRList' vectors.
+mapMapRList2 :: (forall x. f x -> g x -> h x) ->
+                MapRList f c -> MapRList g c -> MapRList h c
+mapMapRList2 _ MNil MNil = MNil
+mapMapRList2 f (xs :>: x) (ys :>: y) = mapMapRList2 f xs ys :>: f x y
+mapMapRList2 _ _ _ =
+  error "Something is terribly wrong in mapMapRList2: this case should not happen!"
 
--- | Append two 'HList' vectors.
-appendHList :: HList f c1 -> HList f c2 -> HList f (c1 :++: c2)
-appendHList mc Nil = mc
-appendHList mc1 (mc2 :> x) = appendHList mc1 mc2 :> x
+-- | Append two 'MapRList' vectors.
+appendMapRList :: MapRList f c1 -> MapRList f c2 -> MapRList f (c1 :++: c2)
+appendMapRList mc MNil = mc
+appendMapRList mc1 (mc2 :>: x) = appendMapRList mc1 mc2 :>: x
 
--- -- | Append two 'HList' vectors.
--- appendWithPf :: Append c1 c2 c -> HList f c1 -> HList f c2 -> HList f c
+-- -- | Append two 'MapRList' vectors.
+-- appendWithPf :: Append c1 c2 c -> MapRList f c1 -> MapRList f c2 -> MapRList f c
 -- appendWithPf Append_Base mc Nil = mc
--- appendWithPf (Append_Step app) mc1 (mc2 :> x) = appendWithPf app mc1 mc2 :> x
+-- appendWithPf (Append_Step app) mc1 (mc2 :>: x) = appendWithPf app mc1 mc2 :>: x
 -- appendWithPf  _ _ _ = error "Something is terribly wrong in appendWithPf: this case should not happen!"
 
--- | Make an 'Append' proof from any 'HList' vector for the second
+-- | Make an 'Append' proof from any 'MapRList' vector for the second
 -- argument of the append.
-mkAppend :: HList f c2 -> Append c1 c2 (c1 :++: c2)
-mkAppend Nil = Append_Base
-mkAppend (c :> _) = Append_Step (mkAppend c)
+mkAppend :: MapRList f c2 -> Append c1 c2 (c1 :++: c2)
+mkAppend MNil = Append_Base
+mkAppend (c :>: _) = Append_Step (mkAppend c)
 
 -- | A version of 'mkAppend' that takes in a 'Proxy' argument.
-mkMonoAppend :: Proxy c1 -> HList f c2 -> Append c1 c2 (c1 :++: c2)
+mkMonoAppend :: Proxy c1 -> MapRList f c2 -> Append c1 c2 (c1 :++: c2)
 mkMonoAppend _ = mkAppend
 
--- | The inverse of 'mkAppend', that builds an 'HList' from an 'Append'
-proxiesFromAppend :: Append c1 c2 c -> HList Proxy c2
-proxiesFromAppend Append_Base = Nil
-proxiesFromAppend (Append_Step a) = proxiesFromAppend a :> Proxy
+-- | The inverse of 'mkAppend', that builds an 'MapRList' from an 'Append'
+proxiesFromAppend :: Append c1 c2 c -> MapRList Proxy c2
+proxiesFromAppend Append_Base = MNil
+proxiesFromAppend (Append_Step a) = proxiesFromAppend a :>: Proxy
 
--- | Split an 'HList' vector into two pieces. The first argument is a
+-- | Split an 'MapRList' vector into two pieces. The first argument is a
 -- phantom argument that gives the form of the first list piece.
-splitHList :: (c ~ (c1 :++: c2)) => Proxy c1 -> HList any c2 -> HList f c -> (HList f c1, HList f c2)
-splitHList _ Nil mc = (mc, Nil)
-splitHList _ (any :> _) (mc :> x) = (mc1, mc2 :> x)
-  where (mc1, mc2) = splitHList Proxy any mc
+splitMapRList :: (c ~ (c1 :++: c2)) => Proxy c1 ->
+                 MapRList any c2 -> MapRList f c -> (MapRList f c1, MapRList f c2)
+splitMapRList _ MNil mc = (mc, MNil)
+splitMapRList _ (any :>: _) (mc :>: x) = (mc1, mc2 :>: x)
+  where (mc1, mc2) = splitMapRList Proxy any mc
 --split _ _ = error "Should not happen! (Map.split)"
 
 -- | Create a vector of proofs that each type in @c@ is a 'Member' of @c@.
-members :: HList f c -> HList (Member c) c
-members Nil = Nil
-members (c :> _) = mapHList Member_Step (members c) :> Member_Base
+members :: MapRList f c -> MapRList (Member c) c
+members MNil = MNil
+members (c :>: _) = mapMapRList Member_Step (members c) :>: Member_Base
 
--- -- | Replace a single element of a 'HList' vector.
--- replace :: HList f c -> Member c a -> f a -> HList f c
--- replace (xs :> _) Member_Base y = xs :> y
--- replace (xs :> x) (Member_Step memb) y = replace xs memb y :> x
+-- -- | Replace a single element of a 'MapRList' vector.
+-- replace :: MapRList f c -> Member c a -> f a -> MapRList f c
+-- replace (xs :>: _) Member_Base y = xs :>: y
+-- replace (xs :>: x) (Member_Step memb) y = replace xs memb y :>: x
 -- replace _ _ _ = error "Should not happen! (Map.replace)"
 
--- | Convert an HList to a list
-hlistToList :: HList (Constant a) c -> [a]
-hlistToList Nil = []
-hlistToList (xs :> Constant x) = hlistToList xs ++ [x]
+-- | Convert an MapRList to a list
+mapRListToList :: MapRList (Constant a) c -> [a]
+mapRListToList MNil = []
+mapRListToList (xs :>: Constant x) = mapRListToList xs ++ [x]
 
 -- | A type-class which ensures that ctx is a valid context, i.e., has
--- | the form (Nil :> t1 :> ... :> tn) for some types t1 through tn
+-- | the form (RNil :> t1 :> ... :> tn) for some types t1 through tn
 class TypeCtx ctx where
-  typeCtxProxies :: HList Proxy ctx
+  typeCtxProxies :: MapRList Proxy ctx
 
-instance TypeCtx Nil where
-  typeCtxProxies = Nil
+instance TypeCtx RNil where
+  typeCtxProxies = MNil
 
 instance TypeCtx ctx => TypeCtx (ctx :> a) where
-  typeCtxProxies = typeCtxProxies :> Proxy
+  typeCtxProxies = typeCtxProxies :>: Proxy
