@@ -75,6 +75,9 @@ instance NuMatching Integer where
 instance NuMatching Char where
     nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\c1 c2 -> id))
 
+instance NuMatching () where
+    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\c1 c2 -> id))
+
 instance (NuMatching a, NuMatching b) => NuMatching (a,b) where
     nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\c1 c2 (a,b) -> (mapNames c1 c2 a, mapNames c1 c2 b)))
 

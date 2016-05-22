@@ -1,4 +1,7 @@
 
+1.2.1 -> 1.2.2
+- Added NuMatching and Liftable instances for the unit type
+
 1.2 -> 1.2.1
 - Renamed Data.Type.HList to Data.Type.RList
 - Now using DataKinds to represent right-lists of types

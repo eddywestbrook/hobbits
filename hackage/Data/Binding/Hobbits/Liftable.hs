@@ -75,6 +75,9 @@ instance Liftable a => Liftable [a] where
     mbLift [nuP| [] |] = []
     mbLift [nuP| x : xs |] = (mbLift x) : (mbLift xs)
 
+instance Liftable () where
+    mbLift [nuP| () |] = ()
+
 instance (Liftable a, Liftable b) => Liftable (a,b) where
     mbLift [nuP| (x,y) |] = (mbLift x, mbLift y)
 
