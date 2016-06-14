@@ -20,8 +20,8 @@
 --
 -- > case (nu Left) of [nuP| Left x |] -> x  ==  nu id
 --
--- [clP| P |] does the same for the Cl type, and [clNuP| P |] works for
--- both simultaneously: Cl (Mb ctx a).
+-- @[clP| P |]@ does the same for the 'Closed' type, and @[clNuP| P |]@ works
+-- for both simultaneously: @'Closed' ('Mb' ctx a)@.
 
 module Data.Binding.Hobbits.QQ (nuP, clP, clNuP) where
 
@@ -101,7 +101,7 @@ wrapVars (WrapKit {_varView = varView, _asXform = asXform, _topXform = topXform}
     -- for the rest of the pattern
     w (AsP v p) = hit $ ViewP varView $ AsP v $ asXform p
     -- requires the expression to be closed
-    w (ViewP (VarE n) p) = return $ ViewP (VarE 'unCl `AppE` VarE n) p
+    w (ViewP (VarE n) p) = return $ ViewP (VarE 'unClosed `AppE` VarE n) p
     w (ViewP e _) = fail $ "view function must be a single name: `" ++ show (TH.ppr e) ++ "'"
     w p = return p
 
@@ -134,14 +134,14 @@ nuP = patQQ "nuP" $ \s -> do
   namesVar <- newName "topNames"
   parseHere s >>= wrapVars (nuKit topVar namesVar)
 
--- | Builds a 'WrapKit' for parsing patterns that match over 'Cl'
-clKit = WrapKit {_varView = ConE 'Cl, _asXform = asXform, _topXform = const asXform}
-  where asXform p = ConP 'Cl [p]
+-- | Builds a 'WrapKit' for parsing patterns that match over 'Closed'
+clKit = WrapKit {_varView = ConE 'Closed, _asXform = asXform, _topXform = const asXform}
+  where asXform p = ConP 'Closed [p]
 
--- | Quasi-quoter for patterns that match over 'Cl', built using 'clKit'
+-- | Quasi-quoter for patterns that match over 'Closed', built using 'clKit'
 clP = patQQ "clP" $ (>>= wrapVars clKit) . parseHere
 
--- | Quasi-quoter for patterhs that match over @'Cl' ('Mb' ctx a)@
+-- | Quasi-quoter for patterns that match over @'Closed' ('Mb' ctx a)@
 clNuP = patQQ "clNuP" $ \s -> do
   topVar <- newName "topMb"
   namesVar <- newName "topNames"
