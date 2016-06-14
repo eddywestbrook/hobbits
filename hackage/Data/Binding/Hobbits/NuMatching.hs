@@ -23,7 +23,7 @@
 
 module Data.Binding.Hobbits.NuMatching (
   NuMatching(..), mkNuMatching, NuMatchingList(..), NuMatching1(..),
-  MbTypeRepr()
+  MbTypeRepr(), isoMbTypeRepr
 ) where
 
 --import Data.Typeable
@@ -56,7 +56,7 @@ class NuMatching a where
 instance NuMatching (Name a) where
     nuMatchingProof = MbTypeReprName
 
-instance NuMatching (Cl a) where
+instance NuMatching (Closed a) where
     -- no need to map free variables in a Closed object
     nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\c1 c2 -> id))
 
@@ -151,6 +151,16 @@ instance (NuMatching1 f, NuMatchingList ctx) => NuMatching (MapRList f ctx) wher
               NuMatchingObj () ->
                   (helper proofs c1 c2 elems) :>:
                   mapNames c1 c2 elem
+
+
+-- | Build an 'MbTypeRepr' for type @a@ by using an isomorphism with an
+-- already-representable type @b@. This is useful for building 'NuMatching'
+-- instances for, e.g., 'Integral' types, by mapping to and from 'Integer',
+-- without having to define instances for each one in this module.
+isoMbTypeRepr :: NuMatching b => (a -> b) -> (b -> a) -> MbTypeRepr a
+isoMbTypeRepr f_to f_from =
+  MbTypeReprData $ MkMbTypeReprData $ \names1 names2 a ->
+  f_from $ mapNames names1 names2 (f_to a)
 
 
 -- now we define some TH to create NuMatchings
