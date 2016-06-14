@@ -1,4 +1,11 @@
 
+1.2.2 -> 1.2.3
+- Renamed Cl and unCl to Closed and unClosed, respectively
+- Moved mkClosed to Internal/Closed.hs
+- Added the Closable typeclass
+- Added clApplyCl
+
+
 1.2.1 -> 1.2.2
 - Added NuMatching and Liftable instances for the unit type
 
