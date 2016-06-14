@@ -16,11 +16,11 @@
 
 module Data.Binding.Hobbits.Closed (
   -- * Abstract types
-  Cl(),
-  -- * Operators involving 'Cl'
-  cl, clApply, unCl, noClosedNames,
-  -- * Synonyms
-  mkClosed, Closed, unClosed
+  Closed(),
+  -- * Operators involving 'Closed'
+  unClosed, mkClosed, noClosedNames, clApply, clMbApply, clApplyCl,
+  -- * Typeclass for inherently closed types
+  Closable(..)
 ) where
 
 import Data.Binding.Hobbits.Internal.Name
@@ -28,59 +28,10 @@ import Data.Binding.Hobbits.Internal.Mb
 import Data.Binding.Hobbits.Internal.Closed
 import Data.Binding.Hobbits.Mb
 
-import Language.Haskell.TH (Q, Exp(..), Type(..))
-import qualified Language.Haskell.TH as TH
-import qualified Language.Haskell.TH.ExpandSyns as TH
-
-import qualified Data.Generics as SYB
-import qualified Language.Haskell.TH.Syntax as TH
-
-
--- | @cl@ is used with Template Haskell quotations to create closed terms of
--- type 'Cl'. A quoted expression is closed if all of the names occuring in it
--- are
---
---   1) bound globally or
---   2) bound within the quotation or
---   3) also of type 'Cl'.
-cl :: Q Exp -> Q Exp
-cl e = AppE (ConE 'Cl) `fmap` e >>= SYB.everywhereM (SYB.mkM w) where
-  w e@(VarE n@(TH.Name _ flav)) = case flav of
-    TH.NameG {} -> return e -- bound globally
-    TH.NameU {} -> return e -- bound locally within this quotation
-    TH.NameL {} -> closed n >> return e -- bound locally outside this quotation
-    _ -> fail $ "`cl' does not allow dynamically bound names: `"
-      ++ show n ++ "'."
-  w e = return e
-
-  closed n = do
-    i <- TH.reify n
-    case i of
-      TH.VarI _ ty _ _ -> TH.expandSyns ty >>= w
-        where
-          w (AppT (ConT m) _) | m == ''Cl = return ()
-          w (ForallT _ _ ty) = w ty
-          w _ = fail $ "`cl` requires non-global variables to have type `Cl'.\n\t`"
-            ++ show (TH.ppr n) ++ "' does not. It's type is:\n\t `"
-            ++ show (TH.ppr ty) ++ "'."
-      _ -> fail $ "hobbits Panic -- could not reify `" ++ show n ++ "'."
-
-
-
--- | Closed terms are closed (sorry) under application.
-clApply :: Cl (a -> b) -> Cl a -> Cl b
--- could be defined with cl were it not for the GHC stage restriction
-clApply (Cl f) (Cl a) = Cl (f a)
-
--- | Closed multi-bindings are also closed under application.
-clMbApply :: Cl (Mb ctx (a -> b)) -> Cl (Mb ctx a) ->
-             Cl (Mb ctx b)
-clMbApply (Cl f) (Cl a) = Cl (mbApply f a)
-
 -- | @noClosedNames@ encodes the hobbits guarantee that no name can escape its
 -- multi-binding.
-noClosedNames :: Cl (Name a) -> b
-noClosedNames (Cl n) =
+noClosedNames :: Closed (Name a) -> b
+noClosedNames (Closed n) =
   -- We compare n to itself to force evaluation, in case the body of
   -- the closed value is non-terminating...
   case cmpName n n of
@@ -89,11 +40,25 @@ noClosedNames (Cl n) =
       "... Clever girl!" ++
       "The `noClosedNames' invariant has somehow been violated."
 
--- | @mkClosed = cl@
-mkClosed = cl
+-- | Closed terms are closed (sorry) under application.
+clApply :: Closed (a -> b) -> Closed a -> Closed b
+-- could be defined with cl were it not for the GHC stage restriction
+clApply (Closed f) (Closed a) = Closed (f a)
 
--- | @Closed = Cl@
-type Closed = Cl
+-- | Closed multi-bindings are also closed under application.
+clMbApply :: Closed (Mb ctx (a -> b)) -> Closed (Mb ctx a) ->
+             Closed (Mb ctx b)
+clMbApply (Closed f) (Closed a) = Closed (mbApply f a)
 
--- | @unClosed = unCl@
-unClosed x = unCl x
+-- | When applying a closed function, the argument can be viewed as locally
+-- closed
+clApplyCl :: Closed (Closed a -> b) -> Closed a -> Closed b
+clApplyCl (Closed f) a = Closed (f a)
+
+-- | FIXME: this should not be possible!!
+closeBug :: a -> Closed a
+closeBug = $([| \x -> $(mkClosed [| x |]) |])
+
+-- | Typeclass for inherently closed types
+class Closable a where
+  toClosed :: a -> Closed a

@@ -18,11 +18,45 @@
 
 module Data.Binding.Hobbits.Internal.Closed where
 
-{-|
-  The type @Cl a@ represents a closed term of type @a@,
-  i.e., an expression of type @a@ with no free (Haskell) variables.
-  Since this cannot be checked directly in the Haskell type system,
-  the @Cl@ data type is hidden, and the user can only create
-  closed terms using Template Haskell, through the 'cl' operator.
--}
-newtype Cl a = Cl { unCl :: a }
+import Language.Haskell.TH (Q, Exp(..), Type(..))
+import qualified Language.Haskell.TH as TH
+import qualified Language.Haskell.TH.ExpandSyns as TH
+
+import qualified Data.Generics as SYB
+import qualified Language.Haskell.TH.Syntax as TH
+
+{-| The type @Closed a@ represents a closed term of type @a@, i.e., an expression
+of type @a@ with no free (Haskell) variables.  Since this cannot be checked
+directly in the Haskell type system, the @Closed@ data type is hidden, and the
+user can only create closed terms using Template Haskell, through the 'mkClosed'
+operator. -}
+newtype Closed a = Closed { unClosed :: a }
+
+-- | @mkClosed@ is used with Template Haskell quotations to create closed terms
+-- of type 'Closed'. A quoted expression is closed if all of the names occuring in
+-- it are either:
+--
+--   1) bound globally or
+--   2) bound within the quotation or
+--   3) also of type 'Closed'.
+mkClosed :: Q Exp -> Q Exp
+mkClosed e = AppE (ConE 'Closed) `fmap` e >>= SYB.everywhereM (SYB.mkM w) where
+  w e@(VarE n@(TH.Name _ flav)) = case flav of
+    TH.NameG {} -> return e -- bound globally
+    TH.NameU {} -> return e -- bound locally within this quotation
+    TH.NameL {} -> closed n >> return e -- bound locally outside this quotation
+    _ -> fail $ "`mkClosed' does not allow dynamically bound names: `"
+      ++ show n ++ "'."
+  w e = return e
+
+  closed n = do
+    i <- TH.reify n
+    case i of
+      TH.VarI _ ty _ _ -> TH.expandSyns ty >>= w
+        where
+          w (AppT (ConT m) _) | m == ''Closed = return ()
+          w (ForallT _ _ ty) = w ty
+          w _ = fail $ "`mkClosed` requires non-global variables to have type `Closed'.\n\t`"
+            ++ show (TH.ppr n) ++ "' does not. It's type is:\n\t `"
+            ++ show (TH.ppr ty) ++ "'."
+      _ -> fail $ "hobbits Panic -- could not reify `" ++ show n ++ "'."
