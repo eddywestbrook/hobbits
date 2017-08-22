@@ -19,8 +19,8 @@ Build-Type:    Simple
 extra-source-files: CHANGELOG
 
 Library
-  Build-Depends: base >= 4.7 && < 4.10
-  Build-Depends: template-haskell >= 2.9 && < 2.12
+  Build-Depends: base >= 4.7 && < 5
+  Build-Depends: template-haskell >= 2.9 && < 2.13
 
   Build-Depends: syb
   Build-Depends: mtl
@@ -28,7 +28,7 @@ Library
   Build-Depends: tagged
   Build-Depends: deepseq
 
-  Build-Depends: haskell-src-exts >= 1.17.1 && < 1.18, haskell-src-meta,
+  Build-Depends: haskell-src-exts >= 1.17.1 && < 1.20, haskell-src-meta,
                  th-expand-syns >= 0.3 && < 0.5, transformers
 
   GHC-Options: -fwarn-incomplete-patterns -fwarn-unused-imports
