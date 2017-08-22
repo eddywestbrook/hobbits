@@ -23,7 +23,7 @@
 
 module Data.Binding.Hobbits.NuMatching (
   NuMatching(..), mkNuMatching, NuMatchingList(..), NuMatching1(..),
-  MbTypeRepr(), isoMbTypeRepr
+  MbTypeRepr(), isoMbTypeRepr, NuMatchingObj(..)
 ) where
 
 --import Data.Typeable
@@ -66,6 +66,9 @@ instance (NuMatching a, NuMatching b) => NuMatching (a -> b) where
 instance NuMatching a => NuMatching (Mb ctx a) where
     nuMatchingProof = MbTypeReprMb nuMatchingProof
 
+instance NuMatching Bool where
+    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\_ _ -> id))
+
 instance NuMatching Int where
     nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\c1 c2 -> id))
 
@@ -86,6 +89,13 @@ instance (NuMatching a, NuMatching b, NuMatching c) => NuMatching (a,b,c) where
 
 instance (NuMatching a, NuMatching b, NuMatching c, NuMatching d) => NuMatching (a,b,c,d) where
     nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\c1 c2 (a,b,c,d) -> (mapNames c1 c2 a, mapNames c1 c2 b, mapNames c1 c2 c, mapNames c1 c2 d)))
+
+instance NuMatching a => NuMatching (Maybe a) where
+    nuMatchingProof = MbTypeReprData
+                  (MkMbTypeReprData
+                   $ (\c1 c2 x -> case x of
+                                    Just x -> Just (mapNames c1 c2 x)
+                                    Nothing -> Nothing))
 
 instance (NuMatching a, NuMatching b) => NuMatching (Either a b) where
     nuMatchingProof = MbTypeReprData

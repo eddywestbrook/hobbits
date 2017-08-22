@@ -34,8 +34,8 @@ data RList a
 
 type family ((r1 :: RList *) :++: (r2 :: RList *)) :: RList *
 infixr 5 :++:
-type instance r :++: RNil = r
-type instance r1 :++: r2 :> a = (r1 :++: r2) :> a
+type instance (r :++: RNil) = r
+type instance (r1 :++: (r2 :> a)) = (r1 :++: r2) :> a
 
 proxyCons :: Proxy r -> f a -> Proxy (r :> a)
 proxyCons _ _ = Proxy

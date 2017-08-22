@@ -25,6 +25,9 @@ import Data.Binding.Hobbits.QQ
 import Data.Binding.Hobbits.Closed
 import Data.Binding.Hobbits.NuMatching
 
+import Data.Word
+import Numeric.Natural
+
 
 {-|
   The class @Liftable a@ gives a \"lifting function\" for a, which can
@@ -34,7 +37,7 @@ class NuMatching a => Liftable a where
     mbLift :: Mb ctx a -> a
 
 -------------------------------------------------------------------------------
--- Lifting instances that must be defined inside the library abstraction boundary
+-- * Lifting instances that must be defined inside the library abstraction boundary
 -------------------------------------------------------------------------------
 
 instance Liftable Char where
@@ -51,7 +54,7 @@ instance Liftable (Closed a) where
 
 
 -------------------------------------------------------------------------------
--- Lifting instances and related functions that could be defined outside the library
+-- * Lifting instances and related functions that could be defined outside the library
 -------------------------------------------------------------------------------
 
 -- README: this requires overlapping instances, because it clashes
@@ -66,10 +69,52 @@ mbList :: NuMatching a => Mb c [a] -> [Mb c a]
 mbList [nuP| [] |] = []
 mbList [nuP| x : xs |] = x : mbList xs
 
+instance NuMatching Natural where
+  nuMatchingProof = isoMbTypeRepr toInteger fromInteger
+instance Liftable Natural where
+  mbLift mb_i = fromInteger $ mbLift $ fmap toInteger mb_i
 
--------------------------------------------------------------------------------
--- Liftable1 and Liftable2
--------------------------------------------------------------------------------
+instance NuMatching Word8 where
+  nuMatchingProof = isoMbTypeRepr toInteger fromInteger
+instance Liftable Word8 where
+  mbLift mb_i = fromInteger $ mbLift $ fmap toInteger mb_i
+instance NuMatching Word16 where
+  nuMatchingProof = isoMbTypeRepr toInteger fromInteger
+instance Liftable Word16 where
+  mbLift mb_i = fromInteger $ mbLift $ fmap toInteger mb_i
+instance NuMatching Word32 where
+  nuMatchingProof = isoMbTypeRepr toInteger fromInteger
+instance Liftable Word32 where
+  mbLift mb_i = fromInteger $ mbLift $ fmap toInteger mb_i
+instance NuMatching Word64 where
+  nuMatchingProof = isoMbTypeRepr toInteger fromInteger
+instance Liftable Word64 where
+  mbLift mb_i = fromInteger $ mbLift $ fmap toInteger mb_i
+
+instance NuMatching Int8 where
+  nuMatchingProof = isoMbTypeRepr toInteger fromInteger
+instance Liftable Int8 where
+  mbLift mb_i = fromInteger $ mbLift $ fmap toInteger mb_i
+instance NuMatching Int16 where
+  nuMatchingProof = isoMbTypeRepr toInteger fromInteger
+instance Liftable Int16 where
+  mbLift mb_i = fromInteger $ mbLift $ fmap toInteger mb_i
+instance NuMatching Int32 where
+  nuMatchingProof = isoMbTypeRepr toInteger fromInteger
+instance Liftable Int32 where
+  mbLift mb_i = fromInteger $ mbLift $ fmap toInteger mb_i
+instance NuMatching Int64 where
+  nuMatchingProof = isoMbTypeRepr toInteger fromInteger
+instance Liftable Int64 where
+  mbLift mb_i = fromInteger $ mbLift $ fmap toInteger mb_i
+
+instance (Integral a, NuMatching a) => NuMatching (Ratio a) where
+  nuMatchingProof =
+    isoMbTypeRepr (\r -> (numerator r, denominator r)) (\(n,d) -> n%d)
+instance (Integral a, Liftable a) => Liftable (Ratio a) where
+  mbLift mb_r =
+    (\(n,d) -> n%d) $ mbLift $ fmap (\r -> (numerator r, denominator r)) mb_r
+
 
 instance Liftable a => Liftable [a] where
     mbLift [nuP| [] |] = []
@@ -80,6 +125,18 @@ instance Liftable () where
 
 instance (Liftable a, Liftable b) => Liftable (a,b) where
     mbLift [nuP| (x,y) |] = (mbLift x, mbLift y)
+
+instance Liftable Bool where
+  mbLift [nuP| True |] = True
+  mbLift [nuP| False |] = False
+
+instance Liftable a => Liftable (Maybe a) where
+  mbLift [nuP| Nothing |] = Nothing
+  mbLift [nuP| Just mb_a |] = Just $ mbLift mb_a
+
+instance (Liftable a, Liftable b) => Liftable (Either a b) where
+  mbLift [nuP| Left mb_a |] = Left $ mbLift mb_a
+  mbLift [nuP| Right mb_b |] = Right $ mbLift mb_b
 
 -- README: these lead to overlapping instances...
 
