@@ -1,4 +1,9 @@
 
+1.2.3 -> 1.2.4
+- exposed NuMatchingObj to the user
+- updated cabal file to handle newer versions of GHC
+- added a number of NuMatching and Liftable instances
+
 1.2.2 -> 1.2.3
 - Renamed Cl and unCl to Closed and unClosed, respectively
 - Moved mkClosed to Internal/Closed.hs
