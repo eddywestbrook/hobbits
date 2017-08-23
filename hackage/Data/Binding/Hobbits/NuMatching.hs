@@ -42,6 +42,32 @@ import Data.Binding.Hobbits.Internal.Closed
 mapNames :: NuMatching a => MapRList Name ctx -> MapRList Name ctx -> a -> a
 mapNames = mapNamesPf nuMatchingProof
 
+-- | Helper to match a data declaration in a TH version-insensitive way
+#if MIN_VERSION_template_haskell(2,11,0)
+matchDataDecl :: Dec -> Maybe (Cxt, TH.Name, [TyVarBndr], [Con])
+matchDataDecl (DataD cxt name tyvars _ constrs _) =
+  Just (cxt, name, tyvars, constrs)
+matchDataDecl (NewtypeD cxt name tyvars _ constr _) =
+  Just (cxt, name, tyvars, [constr])
+matchDataDecl _ = Nothing
+#else
+matchDataDecl :: Dec -> Maybe (Cxt, TH.Name, [TyVarBndr], [Con])
+matchDataDecl (DataD cxt name tyvars constrs _) =
+  Just (cxt, name, tyvars, constrs)
+matchDataDecl (NewtypeD cxt name tyvars constr _) =
+  Just (cxt, name, tyvars, [constr])
+matchDataDecl _ = Nothing
+#endif
+
+-- | Helper to build an instance declaration in a TH version-insensitive way
+#if MIN_VERSION_template_haskell(2,11,0)
+mkInstanceD :: Cxt -> Type -> [Dec] -> Dec
+mkInstanceD = InstanceD Nothing
+#else
+mkInstanceD :: Cxt -> Type -> [Dec] -> Dec
+mkInstanceD = InstanceD
+#endif
+
 
 {-|
   Instances of the @'NuMatching' a@ class allow pattern-matching on
@@ -218,9 +244,9 @@ mkNuMatching tQ =
        fName <- newName "f"
        x1Name <- newName "x1"
        x2Name <- newName "x2"
-       clauses <- mapM (getClause (tName, fName, x1Name, x2Name)) constrs
+       clauses <- getClauses (tName, fName, x1Name, x2Name) constrs
        mapNamesT <- mapNamesType (return cType)
-       return [InstanceD
+       return [mkInstanceD
                cxt (AppT (ConT ''NuMatching) cType)
                [ValD (VarP 'nuMatchingProof)
                 (NormalB
@@ -258,10 +284,8 @@ mkNuMatching tQ =
       getMbTypeReprInfo ctx tyvars topT (ConT tName) =
           do info <- reify tName
              case info of
-               TyConI (DataD _ _ tyvarsReq constrs _) ->
-                   success tyvarsReq constrs
-               TyConI (NewtypeD _ _ tyvarsReq constr _) ->
-                   success tyvarsReq [constr]
+               TyConI (matchDataDecl -> Just (_, _, tyvarsReq, constrs)) ->
+                 success tyvarsReq constrs
                _ -> getMbTypeReprInfoFail topT (": info for " ++ (show tName) ++ " = " ++ (show info))
           where
             success tyvarsReq constrs =
@@ -293,27 +317,49 @@ mkNuMatching tQ =
 
       -- get a list of Clauses, one for each constructor in constrs
       getClauses :: Names -> [Con] -> Q [Clause]
-      getClauses names constrs = mapM (getClause names) constrs
+      getClauses _ [] = return []
 
-      getClause :: Names -> Con -> Q Clause
-      getClause names (NormalC cName cTypes) =
-          getClauseHelper names (map snd cTypes)
-                          (natsFrom 0)
-                          (\l -> ConP cName (map (VarP . fst3) l))
-                          (\l -> foldl AppE (ConE cName) (map fst3 l))
+      getClauses names (NormalC cName cTypes : constrs) =
+        do clause <-
+             getClauseHelper names (map snd cTypes) (natsFrom 0)
+             (\l -> ConP cName (map (VarP . fst3) l))
+             (\l -> foldl AppE (ConE cName) (map fst3 l))
+           clauses <- getClauses names constrs
+           return $ clause : clauses
 
-      getClause names (RecC cName cVarTypes) =
-          getClauseHelper names (map thd3 cVarTypes)
-                         (map fst3 cVarTypes)
-                         (\l -> RecP cName
-                                (map (\(var,_,field) -> (field, VarP var)) l))
-                         (\l -> RecConE cName
-                                (map (\(exp,_,field) -> (field, exp)) l))
+      getClauses names (RecC cName cVarTypes : constrs) =
+        do clause <-
+             getClauseHelper names (map thd3 cVarTypes) (map fst3 cVarTypes)
+             (\l -> RecP cName (map (\(var,_,field) -> (field, VarP var)) l))
+             (\l -> RecConE cName (map (\(exp,_,field) -> (field, exp)) l))
+           clauses <- getClauses names constrs
+           return $ clause : clauses
 
-      getClause names (InfixC cType1 cName cType2) =
-          undefined -- FIXME
+      getClauses names (InfixC cType1 cName cType2 : constrs) =
+        undefined -- FIXME
 
-      getClause names (ForallC _ _ con) =  getClause names con
+#if MIN_VERSION_template_haskell(2,11,0)
+      getClauses names (GadtC cNames cTypes _ : constrs) =
+        do clauses1 <-
+             forM cNames $ \cName ->
+             getClauseHelper names (map snd cTypes) (natsFrom 0)
+             (\l -> ConP cName (map (VarP . fst3) l))
+             (\l -> foldl AppE (ConE cName) (map fst3 l))
+           clauses2 <- getClauses names constrs
+           return (clauses1 ++ clauses2)
+
+      getClauses names (RecGadtC cNames cVarTypes _ : constrs) =
+        do clauses1 <-
+             forM cNames $ \cName ->
+             getClauseHelper names (map thd3 cVarTypes) (map fst3 cVarTypes)
+             (\l -> RecP cName (map (\(var,_,field) -> (field, VarP var)) l))
+             (\l -> RecConE cName (map (\(exp,_,field) -> (field, exp)) l))
+           clauses2 <- getClauses names constrs
+           return (clauses1 ++ clauses2)
+#endif
+
+      getClauses names (ForallC _ _ constr : constrs) =
+        getClauses names (constr : constrs)
 
       getClauseHelper :: Names -> [Type] -> [a] ->
                          ([(TH.Name,Type,a)] -> Pat) ->
@@ -351,7 +397,7 @@ mkMkMbTypeReprDataOld :: Q TH.Name -> Q Exp
 mkMkMbTypeReprDataOld conNameQ =
     do conName <- conNameQ
        (cxt, name, tyvars, constrs) <- getMbTypeReprInfo conName
-       (clauses, reqCxt) <- runStateT (getClauses cxt name tyvars constrs) []
+       (clauses, reqCxt) <- runStateT (getClauses cxt name tyvars [] constrs) []
        fname <- newName "f"
        return (LetE
                [SigD fname
@@ -370,7 +416,7 @@ mkMkMbTypeReprDataOld conNameQ =
       getMbTypeReprInfo conName =
           reify conName >>= \info ->
               case info of
-                TyConI (DataD cxt name tyvars constrs _) ->
+                TyConI (matchDataDecl -> Just (cxt, name, tyvars, constrs)) ->
                     return (cxt, name, tyvars, constrs)
                 _ -> fail ("mkMkMbTypeReprData: " ++ show conName
                            ++ " is not a (G)ADT")
@@ -392,31 +438,59 @@ mkMkMbTypeReprDataOld conNameQ =
        -}
 
       -- get a list of Clauses, one for each constructor in constrs
-      getClauses :: Cxt -> TH.Name -> [TyVarBndr] -> [Con] -> CxtStateQ [Clause]
-      getClauses cxt name tyvars constrs =
-          mapM (getClause cxt name tyvars []) constrs
+      getClauses :: Cxt -> TH.Name -> [TyVarBndr] -> [TyVarBndr] -> [Con] ->
+                    CxtStateQ [Clause]
+      getClauses cxt name tyvars locTyvars [] = return []
 
-      getClause :: Cxt -> TH.Name -> [TyVarBndr] -> [TyVarBndr] -> Con ->
-                   CxtStateQ Clause
-      getClause cxt name tyvars locTyvars (NormalC cName cTypes) =
-          getClauseHelper cxt name tyvars locTyvars (map snd cTypes)
-                          (natsFrom 0)
-                          (\l -> ConP cName (map (VarP . fst3) l))
-                          (\l -> foldl AppE (ConE cName) (map (VarE . fst3) l))
+      getClauses cxt name tyvars locTyvars (NormalC cName cTypes : constrs) =
+        do clause <-
+             getClauseHelper cxt name tyvars locTyvars (map snd cTypes)
+             (natsFrom 0)
+             (\l -> ConP cName (map (VarP . fst3) l))
+             (\l -> foldl AppE (ConE cName) (map (VarE . fst3) l))
+           clauses <- getClauses cxt name tyvars locTyvars constrs
+           return (clause : clauses)
 
-      getClause cxt name tyvars locTyvars (RecC cName cVarTypes) =
-          getClauseHelper cxt name tyvars locTyvars (map thd3 cVarTypes)
-                         (map fst3 cVarTypes)
-                         (\l -> RecP cName
-                                (map (\(var,_,field) -> (field, VarP var)) l))
-                         (\l -> RecConE cName
-                                (map (\(var,_,field) -> (field, VarE var)) l))
+      getClauses cxt name tyvars locTyvars (RecC cName cVarTypes : constrs) =
+        do clause <-
+             getClauseHelper cxt name tyvars locTyvars (map thd3 cVarTypes)
+             (map fst3 cVarTypes)
+             (\l -> RecP cName (map (\(var,_,field) -> (field, VarP var)) l))
+             (\l -> RecConE cName (map (\(var,_,field) -> (field, VarE var)) l))
+           clauses <- getClauses cxt name tyvars locTyvars constrs
+           return (clause : clauses)
 
-      getClause cxt name tyvars locTyvars (InfixC cType1 cName cType2) =
-          undefined -- FIXME
+      getClauses cxt name tyvars locTyvars (InfixC cType1 cName cType2 : _) =
+        undefined -- FIXME
 
-      getClause cxt name tyvars locTyvars (ForallC tyvars2 cxt2 con) =
-          getClause (cxt ++ cxt2) name tyvars (locTyvars ++ tyvars2) con
+      getClauses cxt name tyvars locTyvars (ForallC tyvars2 cxt2 constr
+                                            : constrs) =
+        do clauses1 <-
+             getClauses (cxt ++ cxt2) name tyvars (locTyvars ++ tyvars2) [constr]
+           clauses2 <- getClauses cxt name tyvars locTyvars constrs
+           return (clauses1 ++ clauses2)
+
+#if MIN_VERSION_template_haskell(2,11,0)
+      getClauses cxt name tyvars locTyvars (GadtC cNames cTypes _ : constrs) =
+        do clauses1 <-
+             forM cNames $ \cName ->
+             getClauseHelper cxt name tyvars locTyvars (map snd cTypes)
+             (natsFrom 0) (\l -> ConP cName (map (VarP . fst3) l))
+             (\l -> foldl AppE (ConE cName) (map (VarE . fst3) l))
+           clauses2 <- getClauses cxt name tyvars locTyvars constrs
+           return (clauses1 ++ clauses2)
+
+      getClauses cxt name tyvars locTyvars (RecGadtC cNames cVarTypes _
+                                            : constrs) =
+        do clauses1 <-
+             forM cNames $ \cName ->
+             getClauseHelper cxt name tyvars locTyvars
+             (map thd3 cVarTypes) (map fst3 cVarTypes)
+             (\l -> RecP cName (map (\(var,_,field) -> (field, VarP var)) l))
+             (\l -> RecConE cName (map (\(var,_,field) -> (field, VarE var)) l))
+           clauses2 <- getClauses cxt name tyvars locTyvars constrs
+           return (clauses1 ++ clauses2)
+#endif
 
       getClauseHelper :: Cxt -> TH.Name -> [TyVarBndr] -> [TyVarBndr] ->
                          [Type] -> [a] ->
