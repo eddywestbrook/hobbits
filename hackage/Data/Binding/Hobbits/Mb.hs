@@ -234,10 +234,13 @@ instance TypeCtx ctx => Applicative (Mb ctx) where
 
 -- FIXME: add more examples!!
 {-|
-  The expression @nuWithElimMulti args f@ takes a sequence @args@ of
-  zero or more multi-bindings, each of type @Mb ctx ai@ for the same
-  type context @ctx@ of bound names, and a function @f@ and does the
-  following:
+
+  asdfasdf
+
+  The expression @nuWithElimMulti args f@ takes a sequence @args@ of one or more
+  multi-bindings (it is a runtime error to pass an empty sequence of arguments),
+  each of type @Mb ctx ai@ for the same type context @ctx@ of bound names, and a
+  function @f@ and does the following:
 
   * Creates a multi-binding that binds names @n1,...,nn@, one name for
     each type in @ctx@;
@@ -250,32 +253,34 @@ instance TypeCtx ctx => Applicative (Mb ctx) where
     substituting into @args@ to the function @f@, which then returns
     the value for the newly created binding.
 
-  Note that the types in @args@ must each have a @NuMatching@ instance;
-  this is represented with the @NuMatchingList@ type class.
+  For example, here is an alternate way to implement 'mbApply':
 
-  Here are some examples:
-
-> (<*>) :: Mb ctx (a -> b) -> Mb ctx a -> Mb ctx b
-> (<*>) f a =
+> mbApply' :: Mb ctx (a -> b) -> Mb ctx a -> Mb ctx b
+> mbApply' f a =
 >     nuWithElimMulti ('MNil' :>: f :>: a)
 >                     (\_ ('MNil' :>: 'Identity' f' :>: 'Identity' a') -> f' a')
 -}
-nuMultiWithElim :: TypeCtx ctx =>
-                   (MapRList Name ctx -> MapRList Identity args -> b) ->
+nuMultiWithElim :: (MapRList Name ctx -> MapRList Identity args -> b) ->
                    MapRList (Mb ctx) args -> Mb ctx b
 nuMultiWithElim f args =
-  MkMbFun typeCtxProxies
+  let proxies =
+        case args of
+          MNil -> error "nuMultiWithElim"
+          (_ :>: arg1) -> mbToProxy arg1 in
+  MkMbFun proxies
           (\ns ->
             f ns $ mapMapRList (\arg ->
                                  Identity $ snd (ensureFreshFun arg) ns) args)
 
 
 {-|
-  Similar to 'nuMultiWithElim' but binds only one name.
+  Similar to 'nuMultiWithElim' but binds only one name. Note that the argument
+  list here is allowed to be empty.
 -}
 nuWithElim :: (Name a -> MapRList Identity args -> b) ->
               MapRList (Mb (RNil :> a)) args ->
               Binding a b
+nuWithElim f MNil = nu $ \n -> f n MNil
 nuWithElim f args =
     nuMultiWithElim (\(MNil :>: n) -> f n) args
 
@@ -283,10 +288,10 @@ nuWithElim f args =
 {-|
   Similar to 'nuMultiWithElim' but takes only one argument
 -}
-nuMultiWithElim1 :: TypeCtx ctx => (MapRList Name ctx -> arg -> b) -> Mb ctx arg ->
-                    Mb ctx b
+nuMultiWithElim1 :: (MapRList Name ctx -> arg -> b) -> Mb ctx arg -> Mb ctx b
 nuMultiWithElim1 f arg =
-    nuMultiWithElim (\names (MNil :>: Identity arg) -> f names arg) (MNil :>: arg)
+    nuMultiWithElim (\names (MNil :>: Identity arg) -> f names arg)
+    (MNil :>: arg)
 
 
 {-|
