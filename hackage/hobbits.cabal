@@ -1,5 +1,5 @@
 Name:                hobbits
-Version:             1.2.4
+Version:             1.2.5
 Synopsis:            A library for canonically representing terms with binding
 
 Description: A library for canonically representing terms with binding via a
