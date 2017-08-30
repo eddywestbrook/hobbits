@@ -1,5 +1,5 @@
 {-# LANGUAGE TypeOperators, EmptyDataDecls, RankNTypes #-}
-{-# LANGUAGE TypeFamilies, DataKinds, KindSignatures #-}
+{-# LANGUAGE TypeFamilies, DataKinds, PolyKinds, KindSignatures #-}
 {-# LANGUAGE GADTs #-}
 
 -- |
@@ -32,10 +32,10 @@ data RList a
   = RNil
   | (RList a) :> a
 
-type family ((r1 :: RList *) :++: (r2 :: RList *)) :: RList *
+type family ((r1 :: RList k) :++: (r2 :: RList k)) :: RList k
 infixr 5 :++:
-type instance (r :++: RNil) = r
-type instance (r1 :++: (r2 :> a)) = (r1 :++: r2) :> a
+type instance (r :++: 'RNil) = r
+type instance (r1 :++: (r2 ':> a)) = (r1 :++: r2) ':> a
 
 proxyCons :: Proxy r -> f a -> Proxy (r :> a)
 proxyCons _ _ = Proxy
@@ -114,7 +114,7 @@ data Append ctx1 ctx2 ctx where
   A @MapRList f r@ is a vector with exactly one element of type @f a@ for
   each type @a@ in the type 'RList' @r@.
 -}
-data MapRList f c where
+data MapRList (f :: k -> *) (c :: RList k) where
   MNil :: MapRList f RNil
   (:>:) :: MapRList f c -> f a -> MapRList f (c :> a)
 
