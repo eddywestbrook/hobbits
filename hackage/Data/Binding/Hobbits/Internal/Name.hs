@@ -30,7 +30,7 @@ import Data.Type.RList
 
 
 -- | A @Name a@ is a bound name that is associated with type @a@.
-newtype Name a = MkName Int deriving (Typeable, Eq)
+newtype Name a = MkName Int deriving (Typeable, Eq, Ord)
 
 instance Show (Name a) where
   showsPrec _ (MkName n) = showChar '#' . shows n . showChar '#'
