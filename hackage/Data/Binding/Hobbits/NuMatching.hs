@@ -30,6 +30,7 @@ module Data.Binding.Hobbits.NuMatching (
 import Language.Haskell.TH hiding (Name)
 import qualified Language.Haskell.TH as TH
 import Control.Monad.State
+import Numeric.Natural
 --import Control.Monad.Identity
 
 import Data.Type.RList
@@ -102,6 +103,9 @@ instance NuMatching Integer where
     nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\c1 c2 -> id))
 
 instance NuMatching Char where
+    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\c1 c2 -> id))
+
+instance NuMatching Natural where
     nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\c1 c2 -> id))
 
 instance NuMatching () where

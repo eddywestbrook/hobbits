@@ -26,6 +26,7 @@ import Data.Binding.Hobbits.Closed
 import Data.Binding.Hobbits.NuMatching
 
 import Data.Ratio
+import Numeric.Natural
 
 
 {-|
@@ -50,6 +51,9 @@ instance Liftable Integer where
 
 instance Liftable (Closed a) where
     mbLift (ensureFreshPair -> (_, c)) = c
+
+instance Liftable Natural where
+    mbLift (ensureFreshPair -> (_, i)) = i
 
 
 -------------------------------------------------------------------------------
