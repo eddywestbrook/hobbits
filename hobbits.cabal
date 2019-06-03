@@ -35,6 +35,8 @@ Library
 
   Extensions: CPP
 
+  hs-source-dirs: src
+
   Exposed-Modules: Data.Type.RList,
 
                    Data.Binding.Hobbits,
