@@ -19,17 +19,18 @@ Build-Type:    Simple
 extra-source-files: CHANGELOG
 
 Library
-  Build-Depends: base >= 4.7 && < 5
-  Build-Depends: template-haskell >= 2.9 && < 2.15
-
-  Build-Depends: syb
-  Build-Depends: mtl
-
-  Build-Depends: tagged
-  Build-Depends: deepseq
-
-  Build-Depends: haskell-src-exts >= 1.17.1 && < 1.21, haskell-src-meta,
-                 th-expand-syns >= 0.3 && < 0.5, transformers
+  build-depends:
+      base >= 4.7 && < 5
+    , template-haskell >= 2.9 && < 2.15
+    , syb
+    , mtl
+    , tagged
+    , deepseq
+    , haskell-src-exts >= 1.17.1 && < 1.21
+    , haskell-src-meta
+    , th-expand-syns >= 0.3 && < 0.5
+    , transformers
+    , containers
 
   GHC-Options: -fwarn-incomplete-patterns -fwarn-unused-imports
 
@@ -44,6 +45,7 @@ Library
                    Data.Binding.Hobbits.Closed,
                    Data.Binding.Hobbits.QQ,
                    Data.Binding.Hobbits.Liftable,
+                   Data.Binding.Hobbits.NameMap,
 
                    Data.Binding.Hobbits.PatternParser,
                    Data.Binding.Hobbits.NuMatching,
