@@ -132,10 +132,14 @@ mapRListLookup Member_Base (_ :>: x) = x
 mapRListLookup (Member_Step mem') (mc :>: _) = mapRListLookup mem' mc
 --mapRListLookup _ _ = error "Should not happen! (mapRListLookup)"
 
+-- | Modify an element of a 'MapRList' vector using a 'Member' proof.
+mapRListModify :: Member c a -> (f a -> f a) -> MapRList f c -> MapRList f c
+mapRListModify Member_Base f (xs :>: x) = xs :>: f x
+mapRListModify (Member_Step mem') f (xs :>: x) = mapRListModify mem' f xs :>: x
+
 -- | Set an element of a 'MapRList' vector using a 'Member' proof.
 mapRListSet :: Member c a -> f a -> MapRList f c -> MapRList f c
-mapRListSet Member_Base y (xs :>: _) = xs :>: y
-mapRListSet (Member_Step mem') y (xs :>: x) = mapRListSet mem' y xs :>: x
+mapRListSet memb x = mapRListModify memb (const x)
 
 -- | Map a function on all elements of a 'MapRList' vector.
 mapMapRList :: (forall x. f x -> g x) -> MapRList f c -> MapRList g c
