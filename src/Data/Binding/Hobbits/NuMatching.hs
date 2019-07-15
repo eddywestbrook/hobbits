@@ -180,7 +180,8 @@ instance (NuMatching1 f, NuMatching a) => NuMatching (f a) where
     nuMatchingProof = nuMatchingProof1 nuMatchingProof
 -}
 
-instance (NuMatching1 f, NuMatchingList ctx) => NuMatching (MapRList f ctx) where
+instance {-# OVERLAPPABLE #-} (NuMatching1 f, NuMatchingList ctx) =>
+                              NuMatching (MapRList f ctx) where
     nuMatchingProof = MbTypeReprData $ MkMbTypeReprData $ helper nuMatchingListProof where
         helper :: NuMatching1 f =>
                   MapRList NuMatchingObj args -> MapRList Name ctx1 ->
