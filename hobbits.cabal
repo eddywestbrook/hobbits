@@ -31,6 +31,7 @@ Library
     , th-expand-syns >= 0.3 && < 0.5
     , transformers
     , containers
+    , vector
 
   GHC-Options: -fwarn-incomplete-patterns -fwarn-unused-imports
 
