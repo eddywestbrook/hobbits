@@ -53,7 +53,7 @@ proxyCons _ _ = Proxy
 
   for some types @t0,t1,...,tn@.
 -}
-data Member ctx a where
+data Member (ctx :: RList k1) (a :: k2) where
   Member_Base :: Member (ctx :> a) a
   Member_Step :: Member ctx a -> Member (ctx :> b) a
   deriving Typeable
