@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell, FlexibleContexts #-}
+{-# LANGUAGE TemplateHaskell, FlexibleContexts, PolyKinds #-}
 
 -- |
 -- Module      : Data.Binding.Hobbits.QQ
