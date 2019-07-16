@@ -19,6 +19,7 @@
 
 module Data.Type.RList where
 
+import Data.Kind
 import Data.Type.Equality ((:~:)(..))
 import Data.Proxy (Proxy(..))
 import Data.Functor.Constant
