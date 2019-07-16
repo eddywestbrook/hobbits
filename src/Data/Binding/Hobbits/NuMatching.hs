@@ -1,6 +1,6 @@
 {-# LANGUAGE GADTs, RankNTypes, TypeOperators, ViewPatterns, TypeFamilies #-}
 {-# LANGUAGE FlexibleInstances, FlexibleContexts, UndecidableInstances #-}
-{-# LANGUAGE TemplateHaskell, ScopedTypeVariables, DataKinds #-}
+{-# LANGUAGE TemplateHaskell, ScopedTypeVariables, DataKinds, PolyKinds #-}
 
 -- |
 -- Module      : Data.Binding.Hobbits.NuMatching
