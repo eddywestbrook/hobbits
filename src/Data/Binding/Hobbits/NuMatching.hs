@@ -26,6 +26,8 @@ module Data.Binding.Hobbits.NuMatching (
   MbTypeRepr(), isoMbTypeRepr, NuMatchingObj(..)
 ) where
 
+import Data.Vector (Vector)
+import qualified Data.Vector as Vector
 --import Data.Typeable
 import Language.Haskell.TH hiding (Name)
 import qualified Language.Haskell.TH as TH
@@ -142,6 +144,10 @@ instance (NuMatching a, NuMatching b) => NuMatching (Either a b) where
 
 instance NuMatching a => NuMatching [a] where
     nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\r -> map (mapNames r)))
+
+instance NuMatching a => NuMatching (Vector a) where
+    nuMatchingProof =
+      MbTypeReprData (MkMbTypeReprData $ (\r -> Vector.map (mapNames r)))
 
 instance NuMatching (Member c a) where
     nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\r -> id))
