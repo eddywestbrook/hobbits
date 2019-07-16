@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell, ViewPatterns #-}
+{-# LANGUAGE TemplateHaskell, ViewPatterns, PolyKinds #-}
 
 -- |
 -- Module      : Data.Binding.Hobbits.Closed

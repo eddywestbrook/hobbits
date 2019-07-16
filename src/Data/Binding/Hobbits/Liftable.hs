@@ -1,5 +1,5 @@
 {-# LANGUAGE GADTs, TypeOperators, FlexibleInstances, TemplateHaskell #-}
-{-# LANGUAGE ViewPatterns, QuasiQuotes, DataKinds #-}
+{-# LANGUAGE ViewPatterns, QuasiQuotes, DataKinds, PolyKinds #-}
 
 -- |
 -- Module      : Data.Binding.Hobbits.Mb
