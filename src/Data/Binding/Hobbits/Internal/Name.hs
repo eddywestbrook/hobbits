@@ -1,4 +1,5 @@
 {-# LANGUAGE GADTs, DeriveDataTypeable, FlexibleInstances, TypeOperators #-}
+{-# LANGUAGE RankNTypes, DataKinds, PolyKinds #-}
 
 -- |
 -- Module      : Data.Binding.Hobbits.Internal.Name
@@ -21,6 +22,8 @@ module Data.Binding.Hobbits.Internal.Name where
 import Data.List
 import Data.Functor.Constant
 import Data.Typeable
+import Data.IntMap.Strict (IntMap)
+import qualified Data.IntMap.Strict as IntMap
 import Data.Type.Equality ((:~:))
 import Unsafe.Coerce (unsafeCoerce)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
@@ -30,7 +33,7 @@ import Data.Type.RList
 
 
 -- | A @Name a@ is a bound name that is associated with type @a@.
-newtype Name a = MkName Int deriving (Typeable, Eq, Ord)
+newtype Name (a :: k) = MkName Int deriving (Typeable, Eq, Ord)
 
 instance Show (Name a) where
   showsPrec _ (MkName n) = showChar '#' . shows n . showChar '#'
@@ -59,6 +62,28 @@ cmpName (MkName n1) (MkName n2)
   | n1 == n2 = Just $ unsafeCoerce Refl
   | otherwise = Nothing
 
+-- | A name refresher gives new fresh indices to names
+newtype NameRefresher = NameRefresher { unNameRefresher :: IntMap Int }
+
+-- | Apply a 'NameRefresher' to a 'Name'
+refreshName :: NameRefresher -> Name a -> Name a
+refreshName (NameRefresher nmap) (MkName i) =
+  MkName $ IntMap.findWithDefault i i nmap
+
+-- | Build a 'NameRefresher' that maps one sequence of names to another
+mkRefresher :: forall (ctx :: RList k) .
+               MapRList Name ctx -> MapRList Name ctx -> NameRefresher
+mkRefresher ns1 ns2 =
+  NameRefresher $ IntMap.fromList $ mapRListToList $
+  mapMapRList2 (\(MkName i) (MkName j) -> Constant (i,j)) ns1 ns2
+
+-- | Extend a 'NameRefresher' with one more name mapping
+extRefresher :: forall (a :: k). NameRefresher -> Name a -> Name a ->
+                NameRefresher
+extRefresher (NameRefresher nmap) (MkName n1) (MkName n2) =
+  NameRefresher $
+  IntMap.insertWith (\_ _ -> error "Hobbit name already in NameRefresher!")
+  n1 n2 nmap
 
 
 -------------------------------------------------------------------------------

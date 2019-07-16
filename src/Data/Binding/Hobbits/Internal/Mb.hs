@@ -1,4 +1,5 @@
-{-# LANGUAGE GADTs, DeriveDataTypeable, Rank2Types, ViewPatterns #-}
+{-# LANGUAGE GADTs, DeriveDataTypeable, ViewPatterns #-}
+{-# LANGUAGE RankNTypes, DataKinds, PolyKinds #-}
 
 -- |
 -- Module      : Data.Binding.Hobbits.Internal.Name
@@ -37,7 +38,7 @@ import Data.Binding.Hobbits.Internal.Name
   pairs must come with an 'MbTypeRepr' for the body type, to ensure
   that the names given in the pair can be relaced by fresher names.
 -}
-data Mb ctx b
+data Mb (ctx :: RList k) b
     = MkMbFun (MapRList Proxy ctx) (MapRList Name ctx -> b)
     | MkMbPair (MbTypeRepr b) (MapRList Name ctx) b
     deriving Typeable
@@ -60,8 +61,7 @@ data MbTypeRepr a where
     MbTypeReprData :: MbTypeReprData a -> MbTypeRepr a
 
 data MbTypeReprData a =
-    MkMbTypeReprData (forall ctx. MapRList Name ctx -> MapRList Name ctx -> a -> a)
-
+    MkMbTypeReprData (forall ctx. NameRefresher -> a -> a)
 
 {-|
   The call @mapNamesPf data ns ns' a@ replaces each occurrence of a
@@ -69,29 +69,25 @@ data MbTypeReprData a =
   listed in @ns'@. This is similar to the name-swapping of Nominal
   Logic, except that the swapping does not go both ways.
 -}
-mapNamesPf :: MbTypeRepr a -> MapRList Name ctx -> MapRList Name ctx -> a -> a
-mapNamesPf MbTypeReprName MNil MNil n = n
-mapNamesPf MbTypeReprName (names :>: m) (names' :>: m') n =
-    case cmpName m n of
-      Just Refl -> m'
-      Nothing -> mapNamesPf MbTypeReprName names names' n
-mapNamesPf MbTypeReprName _ _ _ = error "Should not be possible! (in mapNamesPf)"
-mapNamesPf (MbTypeReprMb tRepr) names1 names2 (ensureFreshFun -> (proxies, f)) =
+mapNamesPf :: MbTypeRepr a -> NameRefresher -> a -> a
+mapNamesPf MbTypeReprName refresher n = refreshName refresher n
+mapNamesPf (MbTypeReprMb tRepr) refresher (ensureFreshFun -> (proxies, f)) =
     -- README: the fresh function created below is *guaranteed* to not
     -- be passed elements of either names1 or names2, since it should
     -- only ever be passed fresh names
-    MkMbFun proxies (\ns -> mapNamesPf tRepr names1 names2 (f ns))
-mapNamesPf (MbTypeReprFun tReprIn tReprOut) names names' f =
-    (mapNamesPf tReprOut names names') . f . (mapNamesPf tReprIn names' names)
-mapNamesPf (MbTypeReprData (MkMbTypeReprData mapFun)) names names' x =
-    mapFun names names' x
+    MkMbFun proxies (\ns -> mapNamesPf tRepr refresher (f ns))
+mapNamesPf (MbTypeReprFun tReprIn tReprOut) refresher f =
+    (mapNamesPf tReprOut refresher) . f . (mapNamesPf tReprIn refresher)
+mapNamesPf (MbTypeReprData (MkMbTypeReprData mapFun)) refresher x =
+    mapFun refresher x
 
 
 -- | Ensures a multi-binding is in "fresh function" form
 ensureFreshFun :: Mb ctx a -> (MapRList Proxy ctx, MapRList Name ctx -> a)
 ensureFreshFun (MkMbFun proxies f) = (proxies, f)
 ensureFreshFun (MkMbPair tRepr ns body) =
-    (mapMapRList (\_ -> Proxy) ns, \ns' -> mapNamesPf tRepr ns ns' body)
+    (mapMapRList (\_ -> Proxy) ns, \ns' ->
+      mapNamesPf tRepr (mkRefresher ns ns') body)
 
 -- | Ensures a multi-binding is in "fresh pair" form
 ensureFreshPair :: Mb ctx a -> (MapRList Name ctx, a)

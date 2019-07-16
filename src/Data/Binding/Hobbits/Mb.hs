@@ -1,4 +1,5 @@
 {-# LANGUAGE GADTs, TypeOperators, FlexibleInstances, ViewPatterns, DataKinds #-}
+{-# LANGUAGE RankNTypes, PolyKinds #-}
 
 -- |
 -- Module      : Data.Binding.Hobbits.Mb
@@ -49,7 +50,7 @@ import Data.Binding.Hobbits.Internal.Mb
 -------------------------------------------------------------------------------
 
 -- | A @Binding@ is simply a multi-binding that binds one name
-type Binding a = Mb (RNil :> a)
+type Binding (a :: k) = Mb (RNil :> a)
 
 -- note: we reverse l to show the inner-most bindings last
 instance Show a => Show (Mb c a) where
@@ -60,7 +61,7 @@ instance Show a => Show (Mb c a) where
   @nu f@ creates a binding which binds a fresh name @n@ and whose
   body is the result of @f n@.
 -}
-nu :: (Name a -> b) -> Binding a b
+nu :: forall (a :: k1) (b :: *) . (Name a -> b) -> Binding a b
 nu f = MkMbFun (MNil :>: Proxy) (\(MNil :>: n) -> f n)
 
 {-|
@@ -93,7 +94,8 @@ nus x = nuMulti x
 > nu $ \n -> mbNameBoundP (nu $ \m -> m)  ==  nu $ \n -> Left Member_Base
 > nu $ \n -> mbNameBoundP (nu $ \m -> n)  ==  nu $ \n -> Right n
 -}
-mbNameBoundP :: Mb ctx (Name a) -> Either (Member ctx a) (Name a)
+mbNameBoundP :: forall (a :: k) (ctx :: RList k).
+                Mb ctx (Name a) -> Either (Member ctx a) (Name a)
 mbNameBoundP (ensureFreshPair -> (names, n)) = helper names n where
     helper :: MapRList Name c -> Name a -> Either (Member c a) (Name a)
     helper MNil n = Right n
@@ -120,11 +122,10 @@ case elemIndex n names of
   @Some Refl@ is returned when the names are equal and @Nothing@ is
   returned when they are not.
 -}
-mbCmpName :: Mb c (Name a) -> Mb c (Name b) -> Maybe (a :~: b)
-mbCmpName b1 b2 = case (mbNameBoundP b1, mbNameBoundP b2) of
-  (Left mem1, Left mem2) -> membersEq mem1 mem2
-  (Right n1, Right n2) -> cmpName n1 n2
-  _ -> Nothing
+mbCmpName :: forall (a :: k1) (b :: k1) (c :: RList k2).
+             Mb c (Name a) -> Mb c (Name b) -> Maybe (a :~: b)
+mbCmpName (ensureFreshPair -> (names, n1)) (ensureFreshFun -> (_, f2)) =
+  cmpName n1 (f2 names)
 
 
 -------------------------------------------------------------------------------
@@ -154,7 +155,8 @@ freshFunctionProxies proxies1 f =
 
 -- README: inner-most bindings come FIRST
 -- | Combines a binding inside another binding into a single binding.
-mbCombine :: Mb c1 (Mb c2 b) -> Mb (c1 :++: c2) b
+mbCombine :: forall (c1 :: RList k) (c2 :: RList k) a b.
+             Mb c1 (Mb c2 b) -> Mb (c1 :++: c2) b
 mbCombine (MkMbPair tRepr1 l1 (MkMbPair tRepr2 l2 b)) =
   MkMbPair tRepr2 (appendMapRList l1 l2) b
 mbCombine (ensureFreshFun -> (proxies1, f1)) =
@@ -176,7 +178,8 @@ mbCombine (ensureFreshFun -> (proxies1, f1)) =
   type @'MapRList' any c2@, is a \"phantom\" argument to indicate how
   the context @c@ should be split.
 -}
-mbSeparate :: MapRList any ctx2 -> Mb (ctx1 :++: ctx2) a ->
+mbSeparate :: forall (ctx1 :: RList k) (ctx2 :: RList k) (any :: k -> *) a.
+              MapRList any ctx2 -> Mb (ctx1 :++: ctx2) a ->
               Mb ctx1 (Mb ctx2 a)
 mbSeparate c2 (MkMbPair tRepr ns a) =
     MkMbPair (MbTypeReprMb tRepr) ns1 (MkMbPair tRepr ns2 a) where
@@ -188,7 +191,8 @@ mbSeparate c2 (MkMbFun proxies f) =
 
 
 -- | Returns a proxy object that enumerates all the types in ctx.
-mbToProxy :: Mb ctx a -> MapRList Proxy ctx
+mbToProxy :: forall (ctx :: RList k) (a :: *) .
+             Mb ctx a -> MapRList Proxy ctx
 mbToProxy (MkMbFun proxies _) = proxies
 mbToProxy (MkMbPair _ ns _) = mapMapRList (\_ -> Proxy) ns
 

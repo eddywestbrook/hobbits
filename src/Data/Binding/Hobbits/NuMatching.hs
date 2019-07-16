@@ -40,7 +40,7 @@ import Data.Binding.Hobbits.Internal.Closed
 
 
 {-| Just like 'mapNamesPf', except uses the NuMatching class. -}
-mapNames :: NuMatching a => MapRList Name ctx -> MapRList Name ctx -> a -> a
+mapNames :: NuMatching a => NameRefresher -> a -> a
 mapNames = mapNamesPf nuMatchingProof
 
 -- | Helper to match a data declaration in a TH version-insensitive way
@@ -85,7 +85,7 @@ instance NuMatching (Name a) where
 
 instance NuMatching (Closed a) where
     -- no need to map free variables in a Closed object
-    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\c1 c2 -> id))
+    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\refresher -> id))
 
 instance (NuMatching a, NuMatching b) => NuMatching (a -> b) where
     nuMatchingProof = MbTypeReprFun nuMatchingProof nuMatchingProof
@@ -94,51 +94,51 @@ instance NuMatching a => NuMatching (Mb ctx a) where
     nuMatchingProof = MbTypeReprMb nuMatchingProof
 
 instance NuMatching Bool where
-    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\_ _ -> id))
+    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\_ -> id))
 
 instance NuMatching Int where
-    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\c1 c2 -> id))
+    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\_ -> id))
 
 instance NuMatching Integer where
-    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\c1 c2 -> id))
+    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\_ -> id))
 
 instance NuMatching Char where
-    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\c1 c2 -> id))
+    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\_ -> id))
 
 instance NuMatching Natural where
-    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\c1 c2 -> id))
+    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\_ -> id))
 
 instance NuMatching () where
-    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\c1 c2 -> id))
+    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\_ -> id))
 
 instance (NuMatching a, NuMatching b) => NuMatching (a,b) where
-    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\c1 c2 (a,b) -> (mapNames c1 c2 a, mapNames c1 c2 b)))
+    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\r (a,b) -> (mapNames r a, mapNames r b)))
 
 instance (NuMatching a, NuMatching b, NuMatching c) => NuMatching (a,b,c) where
-    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\c1 c2 (a,b,c) -> (mapNames c1 c2 a, mapNames c1 c2 b, mapNames c1 c2 c)))
+    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\r (a,b,c) -> (mapNames r a, mapNames r b, mapNames r c)))
 
 instance (NuMatching a, NuMatching b, NuMatching c, NuMatching d) => NuMatching (a,b,c,d) where
-    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\c1 c2 (a,b,c,d) -> (mapNames c1 c2 a, mapNames c1 c2 b, mapNames c1 c2 c, mapNames c1 c2 d)))
+    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\r (a,b,c,d) -> (mapNames r a, mapNames r b, mapNames r c, mapNames r d)))
 
 instance NuMatching a => NuMatching (Maybe a) where
     nuMatchingProof = MbTypeReprData
                   (MkMbTypeReprData
-                   $ (\c1 c2 x -> case x of
-                                    Just x -> Just (mapNames c1 c2 x)
+                   $ (\r x -> case x of
+                                    Just x -> Just (mapNames r x)
                                     Nothing -> Nothing))
 
 instance (NuMatching a, NuMatching b) => NuMatching (Either a b) where
     nuMatchingProof = MbTypeReprData
                   (MkMbTypeReprData
-                   $ (\c1 c2 x -> case x of
-                                    Left l -> Left (mapNames c1 c2 l)
-                                    Right r -> Right (mapNames c1 c2 r)))
+                   $ (\refresher x -> case x of
+                         Left l -> Left (mapNames refresher l)
+                         Right r -> Right (mapNames refresher r)))
 
 instance NuMatching a => NuMatching [a] where
-    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\c1 c2 -> map (mapNames c1 c2)))
+    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\r -> map (mapNames r)))
 
 instance NuMatching (Member c a) where
-    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\c1 c2 -> id))
+    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\r -> id))
 
 
 {-
@@ -184,14 +184,14 @@ instance {-# OVERLAPPABLE #-} (NuMatching1 f, NuMatchingList ctx) =>
                               NuMatching (MapRList f ctx) where
     nuMatchingProof = MbTypeReprData $ MkMbTypeReprData $ helper nuMatchingListProof where
         helper :: NuMatching1 f =>
-                  MapRList NuMatchingObj args -> MapRList Name ctx1 ->
-                  MapRList Name ctx1 -> MapRList f args -> MapRList f args
-        helper MNil c1 c2 MNil = MNil
-        helper (proofs :>: NuMatchingObj ()) c1 c2 (elems :>: (elem :: f a)) =
+                  MapRList NuMatchingObj args -> NameRefresher ->
+                  MapRList f args -> MapRList f args
+        helper MNil r MNil = MNil
+        helper (proofs :>: NuMatchingObj ()) r (elems :>: (elem :: f a)) =
             case nuMatchingProof1 :: NuMatchingObj (f a) of
               NuMatchingObj () ->
-                  (helper proofs c1 c2 elems) :>:
-                  mapNames c1 c2 elem
+                  (helper proofs r elems) :>:
+                  mapNames r elem
 
 
 -- | Build an 'MbTypeRepr' for type @a@ by using an isomorphism with an
@@ -200,8 +200,8 @@ instance {-# OVERLAPPABLE #-} (NuMatching1 f, NuMatchingList ctx) =>
 -- without having to define instances for each one in this module.
 isoMbTypeRepr :: NuMatching b => (a -> b) -> (b -> a) -> MbTypeRepr a
 isoMbTypeRepr f_to f_from =
-  MbTypeReprData $ MkMbTypeReprData $ \names1 names2 a ->
-  f_from $ mapNames names1 names2 (f_to a)
+  MbTypeReprData $ MkMbTypeReprData $ \refresher a ->
+  f_from $ mapNames refresher (f_to a)
 
 
 -- now we define some TH to create NuMatchings
@@ -218,9 +218,9 @@ thd3 :: (a,b,c) -> c
 thd3 (_,_,z) = z
 
 
-type Names = (TH.Name, TH.Name, TH.Name, TH.Name)
+type Names = (TH.Name, TH.Name, TH.Name)
 
-mapNamesType a = [t| forall ctx. MapRList Name ctx -> MapRList Name ctx -> $a -> $a |]
+mapNamesType a = [t| forall ctx. NameRefresher -> $a -> $a |]
 
 {-|
   Template Haskell function for creating NuMatching instances for (G)ADTs.
@@ -247,9 +247,8 @@ mkNuMatching tQ =
     do t <- tQ
        (cxt, cType, tName, constrs, tyvars) <- getMbTypeReprInfoTop t
        fName <- newName "f"
-       x1Name <- newName "x1"
-       x2Name <- newName "x2"
-       clauses <- getClauses (tName, fName, x1Name, x2Name) constrs
+       refrName <- newName "refresher"
+       clauses <- getClauses (tName, fName, refrName) constrs
        mapNamesT <- mapNamesType (return cType)
        return [mkInstanceD
                cxt (AppT (ConT ''NuMatching) cType)
@@ -370,27 +369,27 @@ mkNuMatching tQ =
                          ([(TH.Name,Type,a)] -> Pat) ->
                          ([(Exp,Type,a)] -> Exp) ->
                          Q Clause
-      getClauseHelper names@(tName, fName, x1Name, x2Name) cTypes cData pFun eFun =
+      getClauseHelper names@(tName, fName, refrName) cTypes cData pFun eFun =
           do varNames <- mapM (newName . ("x" ++) . show . fst)
                          $ zip (natsFrom 0) cTypes
              let varsTypesData = zip3 varNames cTypes cData
              let expsTypesData = map (mkExpTypeData names) varsTypesData
-             return $ Clause [(VarP x1Name), (VarP x2Name), (pFun varsTypesData)]
+             return $ Clause [(VarP refrName), (pFun varsTypesData)]
                         (NormalB $ eFun expsTypesData) []
 
       mkExpTypeData :: Names -> (TH.Name,Type,a) -> (Exp,Type,a)
-      mkExpTypeData (tName, fName, x1Name, x2Name)
+      mkExpTypeData (tName, fName, refrName)
                     (varName, getTCtor -> Just (t, tName', _), cData)
           | tName == tName' =
               -- the type of the arg is the same as the (G)ADT we are
               -- recursing over; apply the recursive function
               (foldl AppE (VarE fName)
-                         [(VarE x1Name), (VarE x2Name), (VarE varName)],
+                         [(VarE refrName), (VarE varName)],
                t, cData)
-      mkExpTypeData (tName, fName, x1Name, x2Name) (varName, t, cData) =
+      mkExpTypeData (tName, fName, refrName) (varName, t, cData) =
           -- the type of the arg is not the same as the (G)ADT; call mapNames
           (foldl AppE (VarE 'mapNames)
-                     [(VarE x1Name), (VarE x2Name), (VarE varName)],
+                     [(VarE refrName), (VarE varName)],
            t, cData)
 
 -- FIXME: old stuff below
