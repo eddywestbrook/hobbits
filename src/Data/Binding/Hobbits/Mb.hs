@@ -94,7 +94,7 @@ nus x = nuMulti x
 > nu $ \n -> mbNameBoundP (nu $ \m -> m)  ==  nu $ \n -> Left Member_Base
 > nu $ \n -> mbNameBoundP (nu $ \m -> n)  ==  nu $ \n -> Right n
 -}
-mbNameBoundP :: forall (a :: k) (ctx :: RList k).
+mbNameBoundP :: forall (a :: k1) (ctx :: RList k2).
                 Mb ctx (Name a) -> Either (Member ctx a) (Name a)
 mbNameBoundP (ensureFreshPair -> (names, n)) = helper names n where
     helper :: MapRList Name c -> Name a -> Either (Member c a) (Name a)
