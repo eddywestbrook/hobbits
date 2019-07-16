@@ -108,6 +108,12 @@ instance NuMatching Char where
 instance NuMatching Natural where
     nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\_ -> id))
 
+instance NuMatching Float where
+    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\_ -> id))
+
+instance NuMatching Double where
+    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\_ -> id))
+
 instance NuMatching () where
     nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\_ -> id))
 
