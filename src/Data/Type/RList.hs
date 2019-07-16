@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeOperators, EmptyDataDecls, RankNTypes #-}
 {-# LANGUAGE TypeFamilies, DataKinds, PolyKinds, KindSignatures #-}
-{-# LANGUAGE GADTs #-}
+{-# LANGUAGE GADTs, TypeInType #-}
 
 -- |
 -- Module      : Data.Type.RList
