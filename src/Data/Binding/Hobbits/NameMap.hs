@@ -1,4 +1,5 @@
 {-# LANGUAGE GADTs, TypeOperators, DataKinds, KindSignatures, RankNTypes #-}
+{-# LANGUAGE PolyKinds #-}
 
 -- |
 -- Module      : Data.Binding.Hobbits.Mb
@@ -33,7 +34,7 @@ import Data.Binding.Hobbits.Internal.Name
 
 -- | An element of a 'NameMap', where the name type @a@ is existentially
 -- quantified
-data NMElem (f :: * -> *) where
+data NMElem (f :: k -> *) where
   NMElem :: f a -> NMElem f
 
 -- | Coerce an @'NMElem' f@ to an @f a@ for a specific type @a@. This assumes we
@@ -42,7 +43,7 @@ coerceNMElem :: NMElem f -> f a
 coerceNMElem (NMElem x) = unsafeCoerce x
 
 -- | A heterogeneous map from 'Name's of arbitrary type @a@ to elements of @f a@
-newtype NameMap (f :: * -> *) =
+newtype NameMap (f :: k -> *) =
   NameMap { unNameMap :: IntMap (NMElem f) }
 
 mapNMap1 :: (IntMap (NMElem f) -> IntMap (NMElem f)) -> NameMap f -> NameMap f
