@@ -20,7 +20,7 @@
 module Data.Type.RList where
 
 import Data.Kind
-import Data.Type.Equality ((:~:)(..))
+import Data.Type.Equality
 import Data.Proxy (Proxy(..))
 import Data.Functor.Constant
 import Data.Typeable
@@ -60,6 +60,18 @@ data Member (ctx :: RList k1) (a :: k2) where
   deriving Typeable
 
 instance Show (Member r a) where showsPrec p = showsPrecMember (p > 10)
+
+instance TestEquality (Member ctx) where
+  testEquality Member_Base Member_Base = Just Refl
+  testEquality (Member_Step memb1) (Member_Step memb2)
+    | Just Refl <- testEquality memb1 memb2
+    = Just Refl
+  testEquality _ _ = Nothing
+
+instance Eq (Member ctx a) where
+  Member_Base == Member_Base = True
+  (Member_Step memb1) == (Member_Step memb2) = memb1 == memb2
+  _ == _ = False
 
 showsPrecMember :: Bool -> Member ctx a -> ShowS
 showsPrecMember _ Member_Base = showString "Member_Base"
