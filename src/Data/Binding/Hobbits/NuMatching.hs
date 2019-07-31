@@ -33,6 +33,7 @@ import Language.Haskell.TH hiding (Name)
 import qualified Language.Haskell.TH as TH
 import Control.Monad.State
 import Numeric.Natural
+import Data.Word
 --import Control.Monad.Identity
 
 import Data.Type.RList
@@ -114,6 +115,21 @@ instance NuMatching Float where
     nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\_ -> id))
 
 instance NuMatching Double where
+    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\_ -> id))
+
+instance NuMatching Word where
+    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\_ -> id))
+
+instance NuMatching Word8 where
+    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\_ -> id))
+
+instance NuMatching Word16 where
+    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\_ -> id))
+
+instance NuMatching Word32 where
+    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\_ -> id))
+
+instance NuMatching Word64 where
     nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\_ -> id))
 
 instance NuMatching () where
