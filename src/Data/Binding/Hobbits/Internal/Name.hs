@@ -24,7 +24,7 @@ import Data.Functor.Constant
 import Data.Typeable
 import Data.IntMap.Strict (IntMap)
 import qualified Data.IntMap.Strict as IntMap
-import Data.Type.Equality ((:~:))
+import Data.Type.Equality
 import Unsafe.Coerce (unsafeCoerce)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import System.IO.Unsafe (unsafePerformIO)
@@ -61,6 +61,9 @@ cmpName :: Name a -> Name b -> Maybe (a :~: b)
 cmpName (MkName n1) (MkName n2)
   | n1 == n2 = Just $ unsafeCoerce Refl
   | otherwise = Nothing
+
+instance TestEquality Name where
+  testEquality = cmpName
 
 -- | A name refresher gives new fresh indices to names
 newtype NameRefresher = NameRefresher { unNameRefresher :: IntMap Int }
