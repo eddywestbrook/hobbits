@@ -27,6 +27,7 @@ import Data.Binding.Hobbits.NuMatching
 
 import Data.Ratio
 import Numeric.Natural
+import Data.Type.Equality
 
 
 {-|
@@ -100,6 +101,9 @@ instance Liftable a => Liftable (Maybe a) where
 instance (Liftable a, Liftable b) => Liftable (Either a b) where
   mbLift [nuP| Left mb_a |] = Left $ mbLift mb_a
   mbLift [nuP| Right mb_b |] = Right $ mbLift mb_b
+
+instance Liftable (a :~: b) where
+  mbLift [nuP| Refl |] = Refl
 
 -- README: these lead to overlapping instances...
 
