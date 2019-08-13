@@ -23,6 +23,7 @@ module Data.Binding.Hobbits.Closed (
   Closable(..)
 ) where
 
+import Data.Type.RList
 import Data.Binding.Hobbits.Internal.Name
 import Data.Binding.Hobbits.Internal.Mb
 import Data.Binding.Hobbits.Internal.Closed
@@ -62,3 +63,7 @@ closeBug = $([| \x -> $(mkClosed [| x |]) |])
 -- | Typeclass for inherently closed types
 class Closable a where
   toClosed :: a -> Closed a
+
+instance Closable (Member ctx a) where
+  -- NOTE: this is actually definable with mkClosed, but this is more efficient
+  toClosed memb = Closed memb
