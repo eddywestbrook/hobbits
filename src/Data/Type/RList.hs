@@ -145,6 +145,17 @@ mapRListLookup Member_Base (_ :>: x) = x
 mapRListLookup (Member_Step mem') (mc :>: _) = mapRListLookup mem' mc
 --mapRListLookup _ _ = error "Should not happen! (mapRListLookup)"
 
+-- | Heterogeneous type application, including a proof that the input kind of
+-- the function equals the kind of the type argument
+data HApply (f :: k1 -> Type) (a :: k2) where
+  HApply :: forall (f :: k -> Type) (a :: k). f a -> HApply f a
+
+-- | Look up an element of a 'MapRList' vector using a 'Member' proof.
+mapRListHLookup :: forall (f :: k1 -> Type) (c :: RList k1) (a :: k2).
+                   Member c a -> MapRList f c -> HApply f a
+mapRListHLookup Member_Base (_ :>: x) = HApply x
+mapRListHLookup (Member_Step mem') (mc :>: _) = mapRListHLookup mem' mc
+
 -- | Modify an element of a 'MapRList' vector using a 'Member' proof.
 mapRListModify :: Member c a -> (f a -> f a) -> MapRList f c -> MapRList f c
 mapRListModify Member_Base f (xs :>: x) = xs :>: f x
