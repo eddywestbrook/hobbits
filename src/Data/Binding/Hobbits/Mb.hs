@@ -24,7 +24,7 @@ module Data.Binding.Hobbits.Mb (
   -- * Multi-binding constructors
   nu, nuMulti, nus, emptyMb,
   -- * Queries on names
-  cmpName, mbNameBoundP, mbCmpName,
+  cmpName, hcmpName, mbNameBoundP, mbCmpName,
   -- * Operations on multi-bindings
   elimEmptyMb, mbCombine, mbSeparate, mbToProxy, mbSwap, mbApply,
   -- * Eliminators for multi-bindings

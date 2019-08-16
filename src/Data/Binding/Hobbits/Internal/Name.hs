@@ -65,6 +65,12 @@ cmpName (MkName n1) (MkName n2)
 instance TestEquality Name where
   testEquality = cmpName
 
+-- | Heterogeneous comparison of names, that could be at different kinds
+hcmpName :: forall (a :: k1) (b :: k2). Name a -> Name b -> Maybe (a :~~: b)
+hcmpName (MkName n1) (MkName n2)
+  | n1 == n2 = Just $ unsafeCoerce HRefl
+  | otherwise = Nothing
+
 -- | A name refresher gives new fresh indices to names
 newtype NameRefresher = NameRefresher { unNameRefresher :: IntMap Int }
 
