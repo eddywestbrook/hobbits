@@ -23,6 +23,7 @@ module Data.Binding.Hobbits.Closed (
   Closable(..)
 ) where
 
+import Data.Proxy
 import Data.Type.RList
 import Data.Binding.Hobbits.Internal.Name
 import Data.Binding.Hobbits.Internal.Mb
@@ -64,6 +65,12 @@ closeBug = $([| \x -> $(mkClosed [| x |]) |])
 class Closable a where
   toClosed :: a -> Closed a
 
+instance Closable Integer where
+  toClosed i = Closed i
+
 instance Closable (Member ctx a) where
   -- NOTE: this is actually definable with mkClosed, but this is more efficient
   toClosed memb = Closed memb
+
+instance Closable (Proxy a) where
+  toClosed Proxy = $(mkClosed [| Proxy |])
