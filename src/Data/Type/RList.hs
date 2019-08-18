@@ -206,7 +206,7 @@ proxiesFromAppend (Append_Step a) = proxiesFromAppend a :>: Proxy
 
 -- | Split an 'MapRList' vector into two pieces. The first argument is a
 -- phantom argument that gives the form of the first list piece.
-splitMapRList :: (c ~ (c1 :++: c2)) => Proxy c1 ->
+splitMapRList :: (c ~ (c1 :++: c2)) => prx c1 ->
                  MapRList any c2 -> MapRList f c -> (MapRList f c1, MapRList f c2)
 splitMapRList _ MNil mc = (mc, MNil)
 splitMapRList _ (any :>: _) (mc :>: x) = (mc1, mc2 :>: x)
