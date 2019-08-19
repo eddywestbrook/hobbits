@@ -61,6 +61,11 @@ clApplyCl (Closed f) a = Closed (f a)
 closeBug :: a -> Closed a
 closeBug = $([| \x -> $(mkClosed [| x |]) |])
 
+-- | Mark an object as closed without actually traversing it. This is unsafe if
+-- the object does in fact contain any names.
+unsafeClose :: a -> Closed a
+unsafeClose = Closed
+
 -- | Typeclass for inherently closed types
 class Closable a where
   toClosed :: a -> Closed a
