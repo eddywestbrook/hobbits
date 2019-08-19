@@ -18,7 +18,7 @@ module Data.Binding.Hobbits.Closed (
   -- * Abstract types
   Closed(),
   -- * Operators involving 'Closed'
-  unClosed, mkClosed, noClosedNames, clApply, clMbApply, clApplyCl,
+  unClosed, mkClosed, noClosedNames, clApply, clMbApply, clApplyCl, unsafeClose,
   -- * Typeclass for inherently closed types
   Closable(..)
 ) where
