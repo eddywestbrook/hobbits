@@ -34,6 +34,7 @@ import qualified Language.Haskell.TH as TH
 import Control.Monad.State
 import Numeric.Natural
 import Data.Word
+import Data.Proxy
 import Data.Type.Equality
 --import Control.Monad.Identity
 
@@ -168,6 +169,9 @@ instance NuMatching a => NuMatching (Vector a) where
 
 instance NuMatching (Member c a) where
     nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\r -> id))
+
+instance NuMatching (Proxy (a :: k)) where
+    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\_ -> id))
 
 instance NuMatching (a :~: b) where
     nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\_ -> id))

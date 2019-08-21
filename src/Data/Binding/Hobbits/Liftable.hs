@@ -26,6 +26,7 @@ import Data.Binding.Hobbits.Closed
 import Data.Binding.Hobbits.NuMatching
 
 import Data.Ratio
+import Data.Proxy
 import Numeric.Natural
 import Data.Type.Equality
 
@@ -104,6 +105,9 @@ instance (Liftable a, Liftable b) => Liftable (Either a b) where
 
 instance Liftable (a :~: b) where
   mbLift [nuP| Refl |] = Refl
+
+instance Liftable (Proxy (a :: k)) where
+  mbLift [nuP| Proxy |] = Proxy
 
 -- README: these lead to overlapping instances...
 
