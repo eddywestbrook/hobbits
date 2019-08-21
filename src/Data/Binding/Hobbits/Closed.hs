@@ -79,3 +79,6 @@ instance Closable (Member ctx a) where
 
 instance Closable (Proxy a) where
   toClosed Proxy = $(mkClosed [| Proxy |])
+
+instance Closable (Closed a) where
+  toClosed = clApplyCl $(mkClosed [| id |])
