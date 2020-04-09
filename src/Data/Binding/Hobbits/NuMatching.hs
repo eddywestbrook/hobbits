@@ -376,7 +376,12 @@ mkNuMatching tQ =
            return $ clause : clauses
 
       getClauses names (InfixC cType1 cName cType2 : constrs) =
-        undefined -- FIXME
+        do clause <-
+             getClauseHelper names (map snd [cType1, cType2]) (natsFrom 0)
+             (\l -> ConP cName (map (VarP . fst3) l))
+             (\l -> foldl AppE (ConE cName) (map fst3 l))
+           clauses <- getClauses names constrs
+           return $ clause : clauses
 
 #if MIN_VERSION_template_haskell(2,11,0)
       getClauses names (GadtC cNames cTypes _ : constrs) =
