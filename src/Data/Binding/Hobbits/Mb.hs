@@ -22,7 +22,7 @@ module Data.Binding.Hobbits.Mb (
   Binding(),   -- hides Binding implementation
   Mb(),        -- hides MultiBind implementation
   -- * Multi-binding constructors
-  nu, nuMulti, nus, emptyMb,
+  nu, nuMulti, nus, emptyMb, extMb,
   -- * Queries on names
   cmpName, hcmpName, mbNameBoundP, mbCmpName,
   -- * Operations on multi-bindings
@@ -78,6 +78,8 @@ nuMulti proxies f = MkMbFun (mapMapRList (const Proxy) proxies) f
 -- | @nus = nuMulti@
 nus x = nuMulti x
 
+extMb :: Mb ctx a -> Mb (ctx :> tp) a
+extMb = mbCombine . fmap (nu . const)
 
 -------------------------------------------------------------------------------
 -- Queries on Names

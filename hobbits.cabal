@@ -46,6 +46,7 @@ Library
                    Data.Binding.Hobbits.Closed,
                    Data.Binding.Hobbits.QQ,
                    Data.Binding.Hobbits.Liftable,
+                   Data.Binding.Hobbits.MonadBind,
                    Data.Binding.Hobbits.NameMap,
 
                    Data.Binding.Hobbits.PatternParser,
