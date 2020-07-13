@@ -178,6 +178,9 @@ mapMapRList2 f (xs :>: x) (ys :>: y) = mapMapRList2 f xs ys :>: f x y
 mapMapRList2 _ _ _ =
   error "Something is terribly wrong in mapMapRList2: this case should not happen!"
 
+mapRListTail :: MapRList f (ctx :> a) -> MapRList f ctx
+mapRListTail (xs :>: _) = xs
+
 -- | Append two 'MapRList' vectors.
 appendMapRList :: MapRList f c1 -> MapRList f c2 -> MapRList f (c1 :++: c2)
 appendMapRList mc MNil = mc

@@ -1,6 +1,17 @@
-{-# LANGUAGE GADTs, RankNTypes, TypeOperators, ViewPatterns, TypeFamilies #-}
-{-# LANGUAGE FlexibleInstances, FlexibleContexts, UndecidableInstances #-}
-{-# LANGUAGE TemplateHaskell, ScopedTypeVariables, DataKinds, PolyKinds #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ViewPatterns #-}
 
 -- |
 -- Module      : Data.Binding.Hobbits.NuMatching
@@ -23,7 +34,7 @@
 
 module Data.Binding.Hobbits.NuMatching (
   NuMatching(..), mkNuMatching, NuMatchingList(..), NuMatching1(..),
-  MbTypeRepr(), isoMbTypeRepr, NuMatchingObj(..)
+  MbTypeRepr(), isoMbTypeRepr, NuMatchingObj(..), NuMatchingAny1(..)
 ) where
 
 import Data.Vector (Vector)
@@ -33,6 +44,7 @@ import Language.Haskell.TH hiding (Name)
 import qualified Language.Haskell.TH as TH
 import Control.Monad.State
 import Numeric.Natural
+import qualified Data.Kind as DK
 import Data.Word
 import Data.Proxy
 import Data.Type.Equality
@@ -568,3 +580,19 @@ mkMkMbTypeReprDataOld conNameQ =
 
       isMbTypeRepr 
        -}
+
+
+-- | Typeclass for lifting the 'NuMatching' constraint to functors on arbitrary
+-- kinds that do not require any constraints on their input types
+class NuMatchingAny1 (f :: k -> DK.Type) where
+  nuMatchingAny1Proof :: MbTypeRepr (f a)
+
+instance {-# INCOHERENT #-} NuMatchingAny1 f => NuMatching (f a) where
+  nuMatchingProof = nuMatchingAny1Proof
+
+instance NuMatchingAny1 Name where
+  nuMatchingAny1Proof = nuMatchingProof
+
+instance NuMatchingAny1 ((:~:) a) where
+  nuMatchingAny1Proof = nuMatchingProof
+

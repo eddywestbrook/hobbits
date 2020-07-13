@@ -26,7 +26,7 @@ module Data.Binding.Hobbits.Mb (
   -- * Queries on names
   cmpName, hcmpName, mbNameBoundP, mbCmpName,
   -- * Operations on multi-bindings
-  elimEmptyMb, mbCombine, mbSeparate, mbToProxy, mbSwap, mbApply,
+  elimEmptyMb, mbCombine, mbSeparate, mbToProxy, mbSwap, mbApply, mbLift2,
   -- * Eliminators for multi-bindings
   nuMultiWithElim, nuWithElim, nuMultiWithElim1, nuWithElim1
 ) where
@@ -218,6 +218,10 @@ mbApply :: Mb ctx (a -> b) -> Mb ctx a -> Mb ctx b
 mbApply (ensureFreshFun -> (proxies, f_fun)) (ensureFreshFun -> (_, f_arg)) =
   MkMbFun proxies (\ns -> f_fun ns $ f_arg ns)
 
+
+-- | Lift a binary function function to `Mb`s
+mbLift2 :: (a -> b -> c) -> Mb ctx a -> Mb ctx b -> Mb ctx c
+mbLift2 f mb1 mb2 = fmap f mb1 `mbApply` mb2
 
 -------------------------------------------------------------------------------
 -- Functor and Applicative instances
