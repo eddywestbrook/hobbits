@@ -19,9 +19,6 @@ import Control.Monad.Identity (Identity(..))
 import Control.Monad.Reader (ReaderT(..))
 import Control.Monad.State (StateT(..), get, lift, put, runStateT)
 
-type RNil = 'RNil
-type (:>) = '(:>)
-
 class Monad m => MonadBind m where
   mbM :: NuMatching a => Mb ctx (m a) -> m (Mb ctx a)
 

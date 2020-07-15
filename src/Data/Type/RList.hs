@@ -41,12 +41,6 @@ type instance (r1 :++: (r2 ':> a)) = (r1 :++: r2) ':> a
 proxyCons :: Proxy r -> f a -> Proxy (r :> a)
 proxyCons _ _ = Proxy
 
-{-
-instance TraversableFC MapRList where
-  traverseFC _ MNil = pure MNil
-  traverseFC f (xs :>: x) = (:>:) <$> traverseFC f xs <*> f x
--}
-
 -------------------------------------------------------------------------------
 -- proofs of membership in a type-level list
 -------------------------------------------------------------------------------
@@ -135,9 +129,6 @@ data Append ctx1 ctx2 ctx where
 data MapRList (f :: k -> *) (c :: RList k) where
   MNil :: MapRList f RNil
   (:>:) :: MapRList f c -> f a -> MapRList f (c :> a)
-
--- type RNil = 'RNil
--- type (:>) = '(:>)
 
 -- | Create an empty 'MapRList' vector.
 empty :: MapRList f RNil

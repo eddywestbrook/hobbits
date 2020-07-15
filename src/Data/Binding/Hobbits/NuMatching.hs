@@ -40,11 +40,11 @@ module Data.Binding.Hobbits.NuMatching (
 import Data.Vector (Vector)
 import qualified Data.Vector as Vector
 --import Data.Typeable
-import Language.Haskell.TH hiding (Name)
+import Language.Haskell.TH hiding (Name, Type(..))
 import qualified Language.Haskell.TH as TH
 import Control.Monad.State
 import Numeric.Natural
-import qualified Data.Kind as DK
+import Data.Kind as DK
 import Data.Word
 import Data.Proxy
 import Data.Type.Equality
@@ -79,10 +79,10 @@ matchDataDecl _ = Nothing
 
 -- | Helper to build an instance declaration in a TH version-insensitive way
 #if MIN_VERSION_template_haskell(2,11,0)
-mkInstanceD :: Cxt -> Type -> [Dec] -> Dec
+mkInstanceD :: Cxt -> TH.Type -> [Dec] -> Dec
 mkInstanceD = InstanceD Nothing
 #else
-mkInstanceD :: Cxt -> Type -> [Dec] -> Dec
+mkInstanceD :: Cxt -> TH.Type -> [Dec] -> Dec
 mkInstanceD = InstanceD
 #endif
 
@@ -290,7 +290,7 @@ mapNamesType a = [t| forall ctx. NameRefresher -> $a -> $a |]
   Note that, when a context is included, the Haskell parser will add
   the @forall a@ for you.
 -}
-mkNuMatching :: Q Type -> Q [Dec]
+mkNuMatching :: Q TH.Type -> Q [Dec]
 mkNuMatching tQ =
     do t <- tQ
        (cxt, cType, tName, constrs, tyvars) <- getMbTypeReprInfoTop t
@@ -299,22 +299,22 @@ mkNuMatching tQ =
        clauses <- getClauses (tName, fName, refrName) constrs
        mapNamesT <- mapNamesType (return cType)
        return [mkInstanceD
-               cxt (AppT (ConT ''NuMatching) cType)
+               cxt (TH.AppT (TH.ConT ''NuMatching) cType)
                [ValD (VarP 'nuMatchingProof)
                 (NormalB
                  $ AppE (ConE 'MbTypeReprData)
                    $ AppE (ConE 'MkMbTypeReprData)
                          $ LetE [SigD fName
-                                 $ ForallT (map PlainTV tyvars) cxt mapNamesT,
+                                 $ TH.ForallT (map PlainTV tyvars) cxt mapNamesT,
                                  FunD fName clauses]
                                (VarE fName)) []]]
 
        {-
        return (LetE
                [SigD fName
-                     (ForallT tyvars reqCxt
-                     $ foldl AppT ArrowT
-                           [foldl AppT (ConT conName)
+                     (TH.ForallT tyvars reqCxt
+                     $ foldl TH.AppT TH.ArrowT
+                           [foldl TH.AppT (TH.ConT conName)
                                       (map tyVarToType tyvars)]),
                 FunD fname clauses]
                (VarE fname))
@@ -333,7 +333,7 @@ mkNuMatching tQ =
       getMbTypeReprInfoTop t = getMbTypeReprInfo [] [] t t
 
       -- get info for conName
-      getMbTypeReprInfo ctx tyvars topT (ConT tName) =
+      getMbTypeReprInfo ctx tyvars topT (TH.ConT tName) =
           do info <- reify tName
              case info of
                TyConI (matchDataDecl -> Just (_, _, tyvarsReq, constrs)) ->
@@ -345,26 +345,26 @@ mkNuMatching tQ =
                                 then map tyBndrToName tyvarsReq
                                 else tyvars in
                 return (ctx,
-                        foldl AppT (ConT tName) (map VarT tyvars),
+                        foldl TH.AppT (TH.ConT tName) (map TH.VarT tyvars),
                         tName, constrs, tyvarsRet)
 
-      getMbTypeReprInfo ctx tyvars topT (AppT f (VarT argName)) =
+      getMbTypeReprInfo ctx tyvars topT (TH.AppT f (TH.VarT argName)) =
           if elem argName tyvars then
               getMbTypeReprInfoFail topT ""
           else
               getMbTypeReprInfo ctx (argName:tyvars) topT f
 
-      getMbTypeReprInfo ctx tyvars topT (ForallT _ ctx' t) =
+      getMbTypeReprInfo ctx tyvars topT (TH.ForallT _ ctx' t) =
           getMbTypeReprInfo (ctx ++ ctx') tyvars topT t
 
       getMbTypeReprInfo ctx tyvars topT t = getMbTypeReprInfoFail topT ""
 
       -- get the name from a data type
       getTCtor t = getTCtorHelper t t []
-      getTCtorHelper (ConT tName) topT tyvars = Just (topT, tName, tyvars)
-      getTCtorHelper (AppT t1 (VarT var)) topT tyvars =
+      getTCtorHelper (TH.ConT tName) topT tyvars = Just (topT, tName, tyvars)
+      getTCtorHelper (TH.AppT t1 (TH.VarT var)) topT tyvars =
           getTCtorHelper t1 topT (tyvars ++ [var])
-      getTCtorHelper (SigT t1 _) topT tyvars = getTCtorHelper t1 topT tyvars
+      getTCtorHelper (TH.SigT t1 _) topT tyvars = getTCtorHelper t1 topT tyvars
       getTCtorHelper _ _ _ = Nothing
 
       -- get a list of Clauses, one for each constructor in constrs
@@ -418,9 +418,9 @@ mkNuMatching tQ =
       getClauses names (ForallC _ _ constr : constrs) =
         getClauses names (constr : constrs)
 
-      getClauseHelper :: Names -> [Type] -> [a] ->
-                         ([(TH.Name,Type,a)] -> Pat) ->
-                         ([(Exp,Type,a)] -> Exp) ->
+      getClauseHelper :: Names -> [TH.Type] -> [a] ->
+                         ([(TH.Name,TH.Type,a)] -> Pat) ->
+                         ([(Exp,TH.Type,a)] -> Exp) ->
                          Q Clause
       getClauseHelper names@(tName, fName, refrName) cTypes cData pFun eFun =
           do varNames <- mapM (newName . ("x" ++) . show . fst)
@@ -430,7 +430,7 @@ mkNuMatching tQ =
              return $ Clause [(VarP refrName), (pFun varsTypesData)]
                         (NormalB $ eFun expsTypesData) []
 
-      mkExpTypeData :: Names -> (TH.Name,Type,a) -> (Exp,Type,a)
+      mkExpTypeData :: Names -> (TH.Name,TH.Type,a) -> (Exp,TH.Type,a)
       mkExpTypeData (tName, fName, refrName)
                     (varName, getTCtor -> Just (t, tName', _), cData)
           | tName == tName' =
@@ -458,16 +458,16 @@ mkMkMbTypeReprDataOld conNameQ =
        fname <- newName "f"
        return (LetE
                [SigD fname
-                     (ForallT tyvars reqCxt
-                     $ foldl AppT ArrowT
-                           [foldl AppT (ConT conName)
+                     (TH.ForallT tyvars reqCxt
+                     $ foldl TH.AppT TH.ArrowT
+                           [foldl TH.AppT (TH.ConT conName)
                                       (map tyVarToType tyvars)]),
                 FunD fname clauses]
                (VarE fname))
     where
       -- convert a TyVar to a Name
-      tyVarToType (PlainTV n) = VarT n
-      tyVarToType (KindedTV n _) = VarT n
+      tyVarToType (PlainTV n) = TH.VarT n
+      tyVarToType (KindedTV n _) = TH.VarT n
 
       -- get info for conName
       getMbTypeReprInfo conName =
@@ -483,14 +483,14 @@ mkMkMbTypeReprDataOld conNameQ =
           fail ("mkMkMbTypeReprData: " ++ show t
                 ++ " is not a fully applied (G)ADT")
 
-      getMbTypeReprInfo (ConT conName) topT =
+      getMbTypeReprInfo (TH.ConT conName) topT =
           reify conName >>= \info ->
               case info of
                 TyConI (DataD cxt name tyvars constrs _) ->
                     return (cxt, name, tyvars, constrs)
                 _ -> getMbTypeReprInfoFail topT
-      getMbTypeReprInfo (AppT t _) topT = getMbTypeReprInfo t topT
-      getMbTypeReprInfo (SigT t _) topT = getMbTypeReprInfo t topT
+      getMbTypeReprInfo (TH.AppT t _) topT = getMbTypeReprInfo t topT
+      getMbTypeReprInfo (TH.SigT t _) topT = getMbTypeReprInfo t topT
       getMbTypeReprInfo _ topT = getMbTypeReprInfoFail topT
        -}
 
@@ -550,9 +550,9 @@ mkMkMbTypeReprDataOld conNameQ =
 #endif
 
       getClauseHelper :: Cxt -> TH.Name -> [TyVarBndr] -> [TyVarBndr] ->
-                         [Type] -> [a] ->
-                         ([(TH.Name,Type,a)] -> Pat) ->
-                         ([(TH.Name,Type,a)] -> Exp) ->
+                         [TH.Type] -> [a] ->
+                         ([(TH.Name,TH.Type,a)] -> Pat) ->
+                         ([(TH.Name,TH.Type,a)] -> Exp) ->
                          CxtStateQ Clause
       getClauseHelper cxt name tyvars locTyvars cTypes cData pFun eFun =
           do varNames <- mapM (lift . newName . ("x" ++) . show . fst)
@@ -563,14 +563,14 @@ mkMkMbTypeReprDataOld conNameQ =
                         (NormalB $ eFun varsTypesData) []
 
       -- ensure that MbTypeRepr a holds for each type a in cTypes
-      ensureCxt :: Cxt -> [TyVarBndr] -> [Type] -> CxtStateQ ()
+      ensureCxt :: Cxt -> [TyVarBndr] -> [TH.Type] -> CxtStateQ ()
       ensureCxt cxt locTyvars cTypes =
           foldM (const (ensureCxt1 cxt locTyvars)) () cTypes
 
       -- FIXME: it is not possible (or, at least, not easy) to determine
       -- if MbTypeRepr a is implied from a current Cxt... so we just add
       -- everything we need to the returned Cxt, except for 
-      ensureCxt1 :: Cxt -> [TyVarBndr] -> Type -> CxtStateQ ()
+      ensureCxt1 :: Cxt -> [TyVarBndr] -> TH.Type -> CxtStateQ ()
       ensureCxt1 cxt locTyvars t = undefined
       {-
       ensureCxt1 cxt locTyvars t = do
@@ -584,7 +584,7 @@ mkMkMbTypeReprDataOld conNameQ =
 
 -- | Typeclass for lifting the 'NuMatching' constraint to functors on arbitrary
 -- kinds that do not require any constraints on their input types
-class NuMatchingAny1 (f :: k -> DK.Type) where
+class NuMatchingAny1 (f :: k -> Type) where
   nuMatchingAny1Proof :: MbTypeRepr (f a)
 
 instance {-# INCOHERENT #-} NuMatchingAny1 f => NuMatching (f a) where
