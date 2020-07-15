@@ -21,12 +21,12 @@ extra-source-files: CHANGELOG
 Library
   build-depends:
       base >= 4.7 && < 5
-    , template-haskell >= 2.9 && < 2.15
+    , template-haskell >= 2.11 && < 3
     , syb
     , mtl
     , tagged
     , deepseq
-    , haskell-src-exts >= 1.17.1 && < 1.21
+    , haskell-src-exts >= 1.17.1 && < 2
     , haskell-src-meta
     , th-expand-syns >= 0.3 && < 0.5
     , transformers

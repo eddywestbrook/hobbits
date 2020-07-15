@@ -13,8 +13,6 @@ import Data.Binding.Hobbits.Mb
 import Data.Binding.Hobbits.NuMatching
 import Data.Binding.Hobbits.QQ
 
-import Data.Type.RList
-
 import Control.Monad.Identity (Identity(..))
 import Control.Monad.Reader (ReaderT(..))
 import Control.Monad.State (StateT(..), get, lift, put, runStateT)

@@ -60,32 +60,16 @@ import Data.Binding.Hobbits.Internal.Closed
 mapNames :: NuMatching a => NameRefresher -> a -> a
 mapNames = mapNamesPf nuMatchingProof
 
--- | Helper to match a data declaration in a TH version-insensitive way
-#if MIN_VERSION_template_haskell(2,11,0)
 matchDataDecl :: Dec -> Maybe (Cxt, TH.Name, [TyVarBndr], [Con])
 matchDataDecl (DataD cxt name tyvars _ constrs _) =
   Just (cxt, name, tyvars, constrs)
 matchDataDecl (NewtypeD cxt name tyvars _ constr _) =
   Just (cxt, name, tyvars, [constr])
 matchDataDecl _ = Nothing
-#else
-matchDataDecl :: Dec -> Maybe (Cxt, TH.Name, [TyVarBndr], [Con])
-matchDataDecl (DataD cxt name tyvars constrs _) =
-  Just (cxt, name, tyvars, constrs)
-matchDataDecl (NewtypeD cxt name tyvars constr _) =
-  Just (cxt, name, tyvars, [constr])
-matchDataDecl _ = Nothing
-#endif
 
--- | Helper to build an instance declaration in a TH version-insensitive way
-#if MIN_VERSION_template_haskell(2,11,0)
+
 mkInstanceD :: Cxt -> TH.Type -> [Dec] -> Dec
 mkInstanceD = InstanceD Nothing
-#else
-mkInstanceD :: Cxt -> TH.Type -> [Dec] -> Dec
-mkInstanceD = InstanceD
-#endif
-
 
 {-|
   Instances of the @'NuMatching' a@ class allow pattern-matching on
@@ -395,7 +379,6 @@ mkNuMatching tQ =
            clauses <- getClauses names constrs
            return $ clause : clauses
 
-#if MIN_VERSION_template_haskell(2,11,0)
       getClauses names (GadtC cNames cTypes _ : constrs) =
         do clauses1 <-
              forM cNames $ \cName ->
@@ -413,7 +396,6 @@ mkNuMatching tQ =
              (\l -> RecConE cName (map (\(exp,_,field) -> (field, exp)) l))
            clauses2 <- getClauses names constrs
            return (clauses1 ++ clauses2)
-#endif
 
       getClauses names (ForallC _ _ constr : constrs) =
         getClauses names (constr : constrs)
@@ -527,7 +509,6 @@ mkMkMbTypeReprDataOld conNameQ =
            clauses2 <- getClauses cxt name tyvars locTyvars constrs
            return (clauses1 ++ clauses2)
 
-#if MIN_VERSION_template_haskell(2,11,0)
       getClauses cxt name tyvars locTyvars (GadtC cNames cTypes _ : constrs) =
         do clauses1 <-
              forM cNames $ \cName ->
@@ -547,7 +528,6 @@ mkMkMbTypeReprDataOld conNameQ =
              (\l -> RecConE cName (map (\(var,_,field) -> (field, VarE var)) l))
            clauses2 <- getClauses cxt name tyvars locTyvars constrs
            return (clauses1 ++ clauses2)
-#endif
 
       getClauseHelper :: Cxt -> TH.Name -> [TyVarBndr] -> [TyVarBndr] ->
                          [TH.Type] -> [a] ->
