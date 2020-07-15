@@ -111,7 +111,7 @@ instance Liftable (Proxy (a :: k)) where
   mbLift [nuP| Proxy |] = Proxy
 
 -- Ideally this would be in the Mb module, but that ends up producing a circular
--- include.
+-- include due to needing `mbLift`
 instance Eq a => Eq (Mb ctx a) where
   mb1 == mb2 =
     mbLift $ nuMultiWithElim (\_ (_ :>: a1 :>: a2) ->
