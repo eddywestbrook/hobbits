@@ -44,6 +44,7 @@ import Language.Haskell.TH hiding (Name, Type(..))
 import qualified Language.Haskell.TH as TH
 import Control.Monad.State
 import Numeric.Natural
+import Data.Functor.Constant
 import Data.Kind as DK
 import Data.Word
 import Data.Proxy
@@ -576,3 +577,5 @@ instance NuMatchingAny1 Name where
 instance NuMatchingAny1 ((:~:) a) where
   nuMatchingAny1Proof = nuMatchingProof
 
+instance NuMatching a => NuMatchingAny1 (Constant a) where
+  nuMatchingAny1Proof = nuMatchingProof

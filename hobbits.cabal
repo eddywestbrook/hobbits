@@ -32,6 +32,7 @@ Library
     , transformers
     , containers
     , vector
+    , parameterized-utils
 
   GHC-Options: -fwarn-incomplete-patterns -fwarn-unused-imports
 
@@ -48,9 +49,11 @@ Library
                    Data.Binding.Hobbits.Liftable,
                    Data.Binding.Hobbits.MonadBind,
                    Data.Binding.Hobbits.NameMap,
+                   Data.Binding.Hobbits.NameSet,
 
                    Data.Binding.Hobbits.PatternParser,
                    Data.Binding.Hobbits.NuMatching,
+                   Data.Binding.Hobbits.NuMatchingInstances,
 
                    Data.Binding.Hobbits.Examples.LambdaLifting,
                    Data.Binding.Hobbits.Examples.LambdaLifting.Terms,

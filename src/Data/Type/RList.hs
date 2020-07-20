@@ -206,6 +206,10 @@ proxiesFromAppend :: Append c1 c2 c -> MapRList Proxy c2
 proxiesFromAppend Append_Base = MNil
 proxiesFromAppend (Append_Step a) = proxiesFromAppend a :>: Proxy
 
+foldrMapRList :: (forall a. f a -> r -> r) -> r -> MapRList f ctx -> r
+foldrMapRList _ r MNil = r
+foldrMapRList f r (xs :>: x) = f x $ foldrMapRList f r xs
+
 -- | Split an 'MapRList' vector into two pieces. The first argument is a
 -- phantom argument that gives the form of the first list piece.
 splitMapRList :: (c ~ (c1 :++: c2)) => prx c1 ->
