@@ -32,7 +32,6 @@ Library
     , transformers
     , containers
     , vector
-    , parameterized-utils
 
   GHC-Options: -fwarn-incomplete-patterns -fwarn-unused-imports
 

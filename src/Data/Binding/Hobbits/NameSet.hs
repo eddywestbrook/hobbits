@@ -13,7 +13,6 @@ module Data.Binding.Hobbits.NameSet where
 
 import Data.Functor.Constant
 import Data.Kind
-import Data.Parameterized.Some
 
 import Data.Binding.Hobbits.Internal.Name
 import Data.Binding.Hobbits.NameMap (NameAndElem(..), NameMap(..))
@@ -23,7 +22,9 @@ import Data.Type.RList
 
 type NameSet k = NameMap (Constant () :: k -> Type)
 
-names :: NameSet k -> Some (MapRList (Name :: k -> Type))
+data SomeNames (f :: k -> *) = forall x. SomeNames (f x)
+
+names :: NameSet k -> SomeNames (MapRList (Name :: k -> Type))
 names s =
-  foldl (\(Some rets) (NameAndElem r _) -> Some (rets :>: r)) (Some MNil) $
+  foldl (\(SomeNames rets) (NameAndElem r _) -> SomeNames (rets :>: r)) (SomeNames MNil) $
   NM.assocs s
