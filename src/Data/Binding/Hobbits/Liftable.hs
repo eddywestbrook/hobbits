@@ -25,6 +25,7 @@ import Data.Binding.Hobbits.Internal.Mb
 import Data.Binding.Hobbits.QQ
 import Data.Binding.Hobbits.Closed
 import Data.Binding.Hobbits.NuMatching
+import Data.Binding.Hobbits.NuMatchingInstances
 
 import Data.Ratio
 import Data.Proxy

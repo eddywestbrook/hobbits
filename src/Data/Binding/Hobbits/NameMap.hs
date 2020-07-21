@@ -41,7 +41,8 @@ import Unsafe.Coerce
 
 import Data.Binding.Hobbits.Internal.Name
 import Data.Binding.Hobbits.Mb
-import Data.Binding.Hobbits.NuMatching 
+import Data.Binding.Hobbits.NuMatching
+import Data.Binding.Hobbits.NuMatchingInstances
 import Data.Binding.Hobbits.QQ
 
 -- | An element of a 'NameMap', where the name type @a@ is existentially

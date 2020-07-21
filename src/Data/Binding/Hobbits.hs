@@ -37,12 +37,15 @@ module Data.Binding.Hobbits (
 
   -- * Ancilliary modules
   module Data.Proxy, module Data.Type.Equality,
-  module Data.Type.RList,
   -- | Type lists track the types of bound variables.
-  module Data.Binding.Hobbits.NuMatching
-  -- | The "Data.Binding.Hobbits.NuMatching" module exposes the
-  -- | NuMatching class, which allows pattern-matching on (G)ADTs in
-  -- | the bodies of multi-bindings
+
+  module Data.Type.RList,
+  -- | The "Data.Binding.Hobbits.NuMatching" module exposes the NuMatching
+  -- class, which allows pattern-matching on (G)ADTs in the bodies of
+  -- multi-bindings
+  module Data.Binding.Hobbits.NuMatching,
+  module Data.Binding.Hobbits.NuMatchingInstances
+
                             ) where
 
 import Data.Proxy
@@ -53,3 +56,4 @@ import Data.Binding.Hobbits.Closed
 import Data.Binding.Hobbits.QQ
 import Data.Binding.Hobbits.Liftable
 import Data.Binding.Hobbits.NuMatching
+import Data.Binding.Hobbits.NuMatchingInstances()

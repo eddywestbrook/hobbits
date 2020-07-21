@@ -151,27 +151,18 @@ instance NuMatching () where
     nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\_ -> id))
 
 instance (NuMatching a, NuMatching b) => NuMatching (a,b) where
-    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\r (a,b) -> (mapNames r a, mapNames r b)))
+    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ \r (a,b) ->
+                                       (mapNames r a, mapNames r b))
 
 instance (NuMatching a, NuMatching b, NuMatching c) => NuMatching (a,b,c) where
-    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\r (a,b,c) -> (mapNames r a, mapNames r b, mapNames r c)))
+    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ \r (a,b,c) ->
+                                       (mapNames r a, mapNames r b, mapNames r c))
 
-instance (NuMatching a, NuMatching b, NuMatching c, NuMatching d) => NuMatching (a,b,c,d) where
-    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\r (a,b,c,d) -> (mapNames r a, mapNames r b, mapNames r c, mapNames r d)))
-
-instance NuMatching a => NuMatching (Maybe a) where
-    nuMatchingProof = MbTypeReprData
-                  (MkMbTypeReprData
-                   $ (\r x -> case x of
-                                    Just x -> Just (mapNames r x)
-                                    Nothing -> Nothing))
-
-instance (NuMatching a, NuMatching b) => NuMatching (Either a b) where
-    nuMatchingProof = MbTypeReprData
-                  (MkMbTypeReprData
-                   $ (\refresher x -> case x of
-                         Left l -> Left (mapNames refresher l)
-                         Right r -> Right (mapNames refresher r)))
+instance (NuMatching a, NuMatching b,
+          NuMatching c, NuMatching d) => NuMatching (a,b,c,d) where
+    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ \r (a,b,c,d) ->
+                                       (mapNames r a, mapNames r b,
+                                        mapNames r c, mapNames r d))
 
 instance NuMatching a => NuMatching [a] where
     nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\r -> map (mapNames r)))
@@ -179,15 +170,6 @@ instance NuMatching a => NuMatching [a] where
 instance NuMatching a => NuMatching (Vector a) where
     nuMatchingProof =
       MbTypeReprData (MkMbTypeReprData $ (\r -> Vector.map (mapNames r)))
-
-instance NuMatching (Member c a) where
-    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\r -> id))
-
-instance NuMatching (Proxy (a :: k)) where
-    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\_ -> id))
-
-instance NuMatching (a :~: b) where
-    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\_ -> id))
 
 
 {-
@@ -266,8 +248,7 @@ instance {-# OVERLAPPABLE #-} NuMatchingAny1 f => NuMatching (MapRList f ctx) wh
         helper :: NuMatchingAny1 f => NameRefresher -> MapRList f args ->
                   MapRList f args
         helper r MNil = MNil
-        helper r (elems :>: (elem :: f a)) =
-          helper r elems :>: mapNames r elem
+        helper r (elems :>: elem) = helper r elems :>: mapNames r elem
 
 
 -- now we define some TH to create NuMatchings
