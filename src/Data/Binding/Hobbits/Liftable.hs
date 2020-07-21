@@ -20,6 +20,7 @@
 module Data.Binding.Hobbits.Liftable where
 
 import Data.Type.RList
+import Data.Binding.Hobbits.Mb
 import Data.Binding.Hobbits.Internal.Mb
 import Data.Binding.Hobbits.QQ
 import Data.Binding.Hobbits.Closed
@@ -108,6 +109,15 @@ instance Liftable (a :~: b) where
 
 instance Liftable (Proxy (a :: k)) where
   mbLift [nuP| Proxy |] = Proxy
+
+-- Ideally this would be in the Mb module, but that ends up producing a circular
+-- include due to needing `mbLift`
+instance Eq a => Eq (Mb ctx a) where
+  mb1 == mb2 =
+    mbLift $ nuMultiWithElim (\_ (_ :>: a1 :>: a2) ->
+                               a1 == a2) (MNil :>: mb1 :>: mb2)
+
+
 
 -- README: these lead to overlapping instances...
 

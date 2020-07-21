@@ -1,5 +1,13 @@
-{-# LANGUAGE GADTs, TypeOperators, DataKinds, KindSignatures, RankNTypes #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE ViewPatterns #-}
 
 -- |
 -- Module      : Data.Binding.Hobbits.Mb
@@ -22,6 +30,7 @@ module Data.Binding.Hobbits.NameMap (
   , union, difference, (\\), intersection
   , map, foldr, foldl
   , assocs
+  , liftNameMap
   ) where
 
 import Prelude hiding (lookup, null, map, foldr, foldl)
@@ -31,6 +40,9 @@ import qualified Data.IntMap.Strict as IntMap
 import Unsafe.Coerce
 
 import Data.Binding.Hobbits.Internal.Name
+import Data.Binding.Hobbits.Mb
+import Data.Binding.Hobbits.NuMatching 
+import Data.Binding.Hobbits.QQ
 
 -- | An element of a 'NameMap', where the name type @a@ is existentially
 -- quantified
@@ -133,3 +145,17 @@ assocs (NameMap m) =
   Prelude.map (\(i, e) -> case e of
                   NMElem f -> NameAndElem (MkName i) f) $
   IntMap.assocs m
+
+$(mkNuMatching [t| forall f. NuMatchingAny1 f => NameAndElem f |])
+
+liftNameMap :: forall ctx f a. NuMatchingAny1 f =>
+               (forall a. Mb ctx (f a) -> Maybe (f a)) ->
+               Mb ctx (NameMap f) -> NameMap f
+liftNameMap lifter = helper . fmap assocs where
+  helper :: Mb ctx [NameAndElem f] -> NameMap f
+  helper [nuP| [] |] = empty
+  helper [nuP| (NameAndElem mb_n mb_f):mb_elems |]
+    | Right n <- mbNameBoundP mb_n
+    , Just f <- lifter mb_f
+    = insert n f (helper mb_elems)
+  helper [nuP| _:mb_elems |] = helper mb_elems

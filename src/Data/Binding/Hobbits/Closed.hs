@@ -82,3 +82,18 @@ instance Closable (Proxy a) where
 
 instance Closable (Closed a) where
   toClosed = clApplyCl $(mkClosed [| id |])
+
+instance Closable Bool where
+  toClosed True = $(mkClosed [| True |])
+  toClosed False = $(mkClosed [| False |])
+
+instance Closable Char where
+  toClosed = unsafeClose
+
+instance Closable Int where
+  toClosed = unsafeClose
+
+instance Closable a => Closable [a] where
+  toClosed [] = $(mkClosed [| [] |])
+  toClosed (a:as) =
+    $(mkClosed [| (:) |]) `clApply` toClosed a `clApply` toClosed as

@@ -22,11 +22,11 @@ module Data.Binding.Hobbits.Mb (
   Binding(),   -- hides Binding implementation
   Mb(),        -- hides MultiBind implementation
   -- * Multi-binding constructors
-  nu, nuMulti, nus, emptyMb,
+  nu, nuMulti, nus, emptyMb, extMb,
   -- * Queries on names
   cmpName, hcmpName, mbNameBoundP, mbCmpName,
   -- * Operations on multi-bindings
-  elimEmptyMb, mbCombine, mbSeparate, mbToProxy, mbSwap, mbApply,
+  elimEmptyMb, mbCombine, mbSeparate, mbToProxy, mbSwap, mbApply, mbMap2,
   -- * Eliminators for multi-bindings
   nuMultiWithElim, nuWithElim, nuMultiWithElim1, nuWithElim1
 ) where
@@ -78,6 +78,8 @@ nuMulti proxies f = MkMbFun (mapMapRList (const Proxy) proxies) f
 -- | @nus = nuMulti@
 nus x = nuMulti x
 
+extMb :: Mb ctx a -> Mb (ctx :> tp) a
+extMb = mbCombine . fmap (nu . const)
 
 -------------------------------------------------------------------------------
 -- Queries on Names
@@ -218,6 +220,10 @@ mbApply :: Mb ctx (a -> b) -> Mb ctx a -> Mb ctx b
 mbApply (ensureFreshFun -> (proxies, f_fun)) (ensureFreshFun -> (_, f_arg)) =
   MkMbFun proxies (\ns -> f_fun ns $ f_arg ns)
 
+
+-- | Lift a binary function function to `Mb`s
+mbMap2 :: (a -> b -> c) -> Mb ctx a -> Mb ctx b -> Mb ctx c
+mbMap2 f mb1 mb2 = fmap f mb1 `mbApply` mb2
 
 -------------------------------------------------------------------------------
 -- Functor and Applicative instances

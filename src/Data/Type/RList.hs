@@ -41,7 +41,6 @@ type instance (r1 :++: (r2 ':> a)) = (r1 :++: r2) ':> a
 proxyCons :: Proxy r -> f a -> Proxy (r :> a)
 proxyCons _ _ = Proxy
 
-
 -------------------------------------------------------------------------------
 -- proofs of membership in a type-level list
 -------------------------------------------------------------------------------
@@ -178,6 +177,9 @@ mapMapRList2 f (xs :>: x) (ys :>: y) = mapMapRList2 f xs ys :>: f x y
 mapMapRList2 _ _ _ =
   error "Something is terribly wrong in mapMapRList2: this case should not happen!"
 
+mapRListTail :: MapRList f (ctx :> a) -> MapRList f ctx
+mapRListTail (xs :>: _) = xs
+
 -- | Append two 'MapRList' vectors.
 appendMapRList :: MapRList f c1 -> MapRList f c2 -> MapRList f (c1 :++: c2)
 appendMapRList mc MNil = mc
@@ -203,6 +205,10 @@ mkMonoAppend _ = mkAppend
 proxiesFromAppend :: Append c1 c2 c -> MapRList Proxy c2
 proxiesFromAppend Append_Base = MNil
 proxiesFromAppend (Append_Step a) = proxiesFromAppend a :>: Proxy
+
+foldrMapRList :: (forall a. f a -> r -> r) -> r -> MapRList f ctx -> r
+foldrMapRList _ r MNil = r
+foldrMapRList f r (xs :>: x) = f x $ foldrMapRList f r xs
 
 -- | Split an 'MapRList' vector into two pieces. The first argument is a
 -- phantom argument that gives the form of the first list piece.
@@ -239,3 +245,4 @@ instance TypeCtx RNil where
 
 instance TypeCtx ctx => TypeCtx (ctx :> a) where
   typeCtxProxies = typeCtxProxies :>: Proxy
+
