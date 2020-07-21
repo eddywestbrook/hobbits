@@ -34,7 +34,8 @@
 
 module Data.Binding.Hobbits.NuMatching (
   NuMatching(..), mkNuMatching, NuMatchingList(..), NuMatching1(..),
-  MbTypeRepr(), isoMbTypeRepr, NuMatchingObj(..), NuMatchingAny1(..)
+  MbTypeRepr(), isoMbTypeRepr, unsafeMbTypeRepr,
+  NuMatchingObj(..), NuMatchingAny1(..)
 ) where
 
 import Data.Vector (Vector)
@@ -81,6 +82,21 @@ mkInstanceD = InstanceD Nothing
 -}
 class NuMatching a where
     nuMatchingProof :: MbTypeRepr a
+
+-- | Build an 'MbTypeRepr' for type @a@ by using an isomorphism with an
+-- already-representable type @b@. This is useful for building 'NuMatching'
+-- instances for, e.g., 'Integral' types, by mapping to and from 'Integer',
+-- without having to define instances for each one in this module.
+isoMbTypeRepr :: NuMatching b => (a -> b) -> (b -> a) -> MbTypeRepr a
+isoMbTypeRepr f_to f_from =
+  MbTypeReprData $ MkMbTypeReprData $ \refresher a ->
+  f_from $ mapNames refresher (f_to a)
+
+-- | Builds an 'MbTypeRepr' proof for use in a 'NuMatching' instance. This proof
+-- is unsafe because it does no renaming of fresh names, so should only be used
+-- for types that are guaranteed not to contain any 'Name' or 'Mb' values.
+unsafeMbTypeRepr :: MbTypeRepr a
+unsafeMbTypeRepr = MbTypeReprData (MkMbTypeReprData $ (\_ -> id))
 
 instance NuMatching (Name a) where
     nuMatchingProof = MbTypeReprName
@@ -213,6 +229,7 @@ instance (NuMatching1 f, NuMatching a) => NuMatching (f a) where
     nuMatchingProof = nuMatchingProof1 nuMatchingProof
 -}
 
+{-
 instance {-# OVERLAPPABLE #-} (NuMatching1 f, NuMatchingList ctx) =>
                               NuMatching (MapRList f ctx) where
     nuMatchingProof = MbTypeReprData $ MkMbTypeReprData $ helper nuMatchingListProof where
@@ -225,16 +242,32 @@ instance {-# OVERLAPPABLE #-} (NuMatching1 f, NuMatchingList ctx) =>
               NuMatchingObj () ->
                   (helper proofs r elems) :>:
                   mapNames r elem
+-}
 
+-- | Typeclass for lifting the 'NuMatching' constraint to functors on arbitrary
+-- kinds that do not require any constraints on their input types
+class NuMatchingAny1 (f :: k -> Type) where
+  nuMatchingAny1Proof :: MbTypeRepr (f a)
 
--- | Build an 'MbTypeRepr' for type @a@ by using an isomorphism with an
--- already-representable type @b@. This is useful for building 'NuMatching'
--- instances for, e.g., 'Integral' types, by mapping to and from 'Integer',
--- without having to define instances for each one in this module.
-isoMbTypeRepr :: NuMatching b => (a -> b) -> (b -> a) -> MbTypeRepr a
-isoMbTypeRepr f_to f_from =
-  MbTypeReprData $ MkMbTypeReprData $ \refresher a ->
-  f_from $ mapNames refresher (f_to a)
+instance {-# INCOHERENT #-} NuMatchingAny1 f => NuMatching (f a) where
+  nuMatchingProof = nuMatchingAny1Proof
+
+instance NuMatchingAny1 Name where
+  nuMatchingAny1Proof = nuMatchingProof
+
+instance NuMatchingAny1 ((:~:) a) where
+  nuMatchingAny1Proof = nuMatchingProof
+
+instance NuMatching a => NuMatchingAny1 (Constant a) where
+  nuMatchingAny1Proof = nuMatchingProof
+
+instance {-# OVERLAPPABLE #-} NuMatchingAny1 f => NuMatching (MapRList f ctx) where
+    nuMatchingProof = MbTypeReprData $ MkMbTypeReprData helper where
+        helper :: NuMatchingAny1 f => NameRefresher -> MapRList f args ->
+                  MapRList f args
+        helper r MNil = MNil
+        helper r (elems :>: (elem :: f a)) =
+          helper r elems :>: mapNames r elem
 
 
 -- now we define some TH to create NuMatchings
@@ -561,21 +594,3 @@ mkMkMbTypeReprDataOld conNameQ =
 
       isMbTypeRepr 
        -}
-
-
--- | Typeclass for lifting the 'NuMatching' constraint to functors on arbitrary
--- kinds that do not require any constraints on their input types
-class NuMatchingAny1 (f :: k -> Type) where
-  nuMatchingAny1Proof :: MbTypeRepr (f a)
-
-instance {-# INCOHERENT #-} NuMatchingAny1 f => NuMatching (f a) where
-  nuMatchingProof = nuMatchingAny1Proof
-
-instance NuMatchingAny1 Name where
-  nuMatchingAny1Proof = nuMatchingProof
-
-instance NuMatchingAny1 ((:~:) a) where
-  nuMatchingAny1Proof = nuMatchingProof
-
-instance NuMatching a => NuMatchingAny1 (Constant a) where
-  nuMatchingAny1Proof = nuMatchingProof
