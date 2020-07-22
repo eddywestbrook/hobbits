@@ -26,7 +26,8 @@ module Data.Binding.Hobbits.Mb (
   -- * Queries on names
   cmpName, hcmpName, mbNameBoundP, mbCmpName,
   -- * Operations on multi-bindings
-  elimEmptyMb, mbCombine, mbSeparate, mbToProxy, mbSwap, mbApply, mbMap2,
+  elimEmptyMb, mbCombine, mbSeparate, mbToProxy, mbSwap, mbPure, mbApply,
+  mbMap2,
   -- * Eliminators for multi-bindings
   nuMultiWithElim, nuWithElim, nuMultiWithElim1, nuWithElim1
 ) where
@@ -211,6 +212,10 @@ mbSwap (ensureFreshFun -> (proxies1, f1)) =
          MkMbFun proxies1
          (\ns1 ->
             snd (ensureFreshFun (f1 ns1)) ns2))
+
+-- | Put a value inside a multi-binding
+mbPure :: MapRList f ctx -> a -> Mb ctx a
+mbPure prxs = nuMulti prxs . const
 
 {-|
   Applies a function in a multi-binding to an argument in a
