@@ -30,10 +30,12 @@ import Data.Typeable
 -- * Right-lists as a datatype
 -------------------------------------------------------------------------------
 
+-- | A form of lists where elements are added to the right instead of the left
 data RList a
   = RNil
   | (RList a) :> a
 
+-- | Append two 'RList's at the type level
 type family ((r1 :: RList k) :++: (r2 :: RList k)) :: RList k
 infixr 5 :++:
 type instance (r :++: 'RNil) = r
@@ -56,7 +58,12 @@ data Member (ctx :: RList k1) (a :: k2) where
   Member_Step :: Member ctx a -> Member (ctx :> b) a
   deriving Typeable
 
-instance Show (Member r a) where showsPrec p = showsPrecMember (p > 10)
+instance Show (Member r a) where
+  showsPrec p = showsPrecMember (p > 10) where
+    showsPrecMember :: Bool -> Member ctx a -> ShowS
+    showsPrecMember _ Member_Base = showString "Member_Base"
+    showsPrecMember p (Member_Step prf) = showParen p $
+      showString "Member_Step" . showsPrec 10 prf
 
 instance TestEquality (Member ctx) where
   testEquality Member_Base Member_Base = Just Refl
@@ -70,15 +77,12 @@ instance Eq (Member ctx a) where
   (Member_Step memb1) == (Member_Step memb2) = memb1 == memb2
   _ == _ = False
 
-showsPrecMember :: Bool -> Member ctx a -> ShowS
-showsPrecMember _ Member_Base = showString "Member_Base"
-showsPrecMember p (Member_Step prf) = showParen p $
-  showString "Member_Step" . showsPrec 10 prf
-
 --toEq :: Member (Nil :> a) b -> b :~: a
 --toEq Member_Base = Refl
 --toEq _ = error "Should not happen! (toEq)"
 
+-- | Weaken a 'Member' proof by prepending another context to the context it
+-- proves membership in
 weakenMemberL :: Proxy r1 -> Member r2 a -> Member (r1 :++: r2) a
 weakenMemberL _ Member_Base = Member_Base
 weakenMemberL tag (Member_Step mem) = Member_Step (weakenMemberL tag mem)

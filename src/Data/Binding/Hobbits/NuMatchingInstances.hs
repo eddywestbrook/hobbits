@@ -8,6 +8,19 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE QuasiQuotes #-}
 
+-- |
+-- Module      : Data.Binding.Hobbits.NuMatchingInstances
+-- Copyright   : (c) 2020 Edwin Westbrook
+--
+-- License     : BSD3
+--
+-- Maintainer  : westbrook@galois.com
+-- Stability   : experimental
+-- Portability : GHC
+--
+-- Provides a set of instances of 'NuMatching' for standard types using the
+-- template Haskell 'mkNuMatching' function
+
 module Data.Binding.Hobbits.NuMatchingInstances where
 
 import Data.Proxy

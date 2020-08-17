@@ -30,7 +30,11 @@ of type @a@ with no free (Haskell) variables.  Since this cannot be checked
 directly in the Haskell type system, the @Closed@ data type is hidden, and the
 user can only create closed terms using Template Haskell, through the 'mkClosed'
 operator. -}
-newtype Closed a = Closed { unClosed :: a }
+newtype Closed a =
+  Closed {
+  -- | Extract the value of a 'Closed' object
+  unClosed :: a
+  }
 
 -- | Extract the type of an 'Info' object
 reifyNameType :: TH.Name -> Q Type

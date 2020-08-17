@@ -33,9 +33,9 @@
 
 
 module Data.Binding.Hobbits.NuMatching (
-  NuMatching(..), mkNuMatching, NuMatchingList(..), NuMatching1(..),
+  NuMatching(..), mkNuMatching,
   MbTypeRepr(), isoMbTypeRepr, unsafeMbTypeRepr,
-  NuMatchingObj(..), NuMatchingAny1(..)
+  NuMatchingAny1(..)
 ) where
 
 import Data.Vector (Vector)
@@ -188,9 +188,10 @@ instance (NuMatchingList args, NuMatching a) => NuMatchingList (args :> a) where
     nuMatchingListProof = (nuMatchingListProof, nuMatchingProof)
 -}
 
+{-
+-- | An object-level reification of the 'NuMatching' class
 data NuMatchingObj a = NuMatching a => NuMatchingObj ()
 
--- the NuMatchingList class, for saying that NuMatching holds for a context of types
 class NuMatchingList args where
     nuMatchingListProof :: RAssign NuMatchingObj args
 
@@ -203,6 +204,7 @@ instance (NuMatchingList args, NuMatching a) => NuMatchingList (args :> a) where
 
 class NuMatching1 f where
     nuMatchingProof1 :: NuMatching a => NuMatchingObj (f a)
+-}
 
 -- README: deriving NuMatching from NuMatching1 leads to overlapping instances
 -- for, e.g., Name a

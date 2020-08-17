@@ -5,6 +5,27 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ViewPatterns #-}
 
+-- |
+-- Module      : Data.Binding.Hobbits.MonadBind
+-- Copyright   : (c) 2020 Edwin Westbrook
+--
+-- License     : BSD3
+--
+-- Maintainer  : westbrook@galois.com
+-- Stability   : experimental
+-- Portability : GHC
+--
+-- This module defines monads that are compatible with the notion of
+-- name-binding, where a monad is compatible with name-binding iff it can
+-- intuitively run computations that are inside name-bindings. More formally, a
+-- /binding monad/ is a monad with an operation 'mbM' that commutes name-binding
+-- with the monadic operations, meaning:
+--
+-- > 'mbM' ('nuMulti' $ \ns -> 'return' a) == 'return' ('nuMulti' $ \ns -> a)
+-- > 'mbM' ('nuMulti' $ \ns -> m >>= f)
+-- >   == 'mbM' ('nuMulti' $ \ns -> m) >>= \mb_x ->
+-- >      'mbM' (('nuMulti' $ \ns x -> f x) `'mbApply'` mb_x)
+
 module Data.Binding.Hobbits.MonadBind (MonadBind(..), MonadStrongBind(..)) where
 
 import Data.Binding.Hobbits.Closed
@@ -17,9 +38,12 @@ import Control.Monad.Identity (Identity(..))
 import Control.Monad.Reader (ReaderT(..))
 import Control.Monad.State (StateT(..), get, lift, put, runStateT)
 
+-- | The class of name-binding monads
 class Monad m => MonadBind m where
   mbM :: NuMatching a => Mb ctx (m a) -> m (Mb ctx a)
 
+-- | Bind a name inside a computation and return the name-binding whose body was
+-- returned by the computation
 nuM :: (MonadBind m, NuMatching b) => (Name a -> m b) -> m (Binding a b)
 nuM = mbM . nu
 
