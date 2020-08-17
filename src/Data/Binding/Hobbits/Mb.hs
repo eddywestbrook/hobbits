@@ -79,8 +79,14 @@ nuMulti proxies f = MkMbFun (mapRAssign (const Proxy) proxies) f
 -- | @nus = nuMulti@
 nus x = nuMulti x
 
+-- | Extend the context of a name-binding by adding a single type
 extMb :: Mb ctx a -> Mb (ctx :> tp) a
 extMb = mbCombine . fmap (nu . const)
+
+-- | Extend the context of a name-binding with multiple types
+extMbMulti :: RAssign f ctx2 -> Mb ctx1 a -> Mb (ctx1 :++: ctx2) a
+extMbMulti ns mb = mbCombine $ fmap (nuMulti ns . const) mb
+
 
 -------------------------------------------------------------------------------
 -- Queries on Names
