@@ -153,6 +153,9 @@ skelAppMultiNames db args = skelAppMultiNamesH db args (C.members args) where
 -- STerms combined with their free variables
 ------------------------------------------------------------
 
+proxyCons :: Proxy r -> f a -> Proxy (r :> a)
+proxyCons _ _ = Proxy
+
 data FVSTerm c lc a where
     FVSTerm :: FVList c fvs -> STerm (fvs :++: lc) a -> FVSTerm c lc a
 
@@ -180,13 +183,13 @@ fvSSepLTVarsH lc c (fvs :>: fv@(MbLName n)) = case fvSSepLTVarsH lc c fvs of
       SepRet (m :>: MbLName n)
       (\xs -> case C.split c' lc xs of
           (fvs' :>: fv', lcs) ->
-            f (append fvs' lcs) :>: fv')
+            f (C.append fvs' lcs) :>: fv')
     where c' = proxyCons (proxyOfRAssign m) fv
 
 raiseAppName ::
   Append c1 c2 (c1 :++: c2) -> Mb (c1 :++: c2) (Name a) -> Either (Member c2 a) (Mb c1 (Name a))
 raiseAppName app n =
-  case fmap mbNameBoundP (mbSeparate (proxiesFromAppend app) n) of
+  case fmap mbNameBoundP (mbSeparate (C.proxiesFromAppend app) n) of
     [nuP| Left mem |] -> Left $ mbLift mem
     [nuP| Right n |] -> Right n
 

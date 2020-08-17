@@ -39,9 +39,6 @@ infixr 5 :++:
 type instance (r :++: 'RNil) = r
 type instance (r1 :++: (r2 ':> a)) = (r1 :++: r2) ':> a
 
-proxyCons :: Proxy r -> f a -> Proxy (r :> a)
-proxyCons _ _ = Proxy
-
 -------------------------------------------------------------------------------
 -- * Proofs of membership in a type-level list
 -------------------------------------------------------------------------------
