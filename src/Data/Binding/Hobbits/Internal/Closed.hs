@@ -33,21 +33,12 @@ operator. -}
 newtype Closed a = Closed { unClosed :: a }
 
 -- | Extract the type of an 'Info' object
-#if MIN_VERSION_template_haskell(2,11,0)
 reifyNameType :: TH.Name -> Q Type
 reifyNameType n =
   TH.reify n >>= \i ->
   case i of
     TH.VarI _ ty _ -> return ty
     _ -> fail $ "hobbits Panic -- could not reify `" ++ show n ++ "'."
-#else
-reifyNameType :: TH.Name -> Q Type
-reifyNameType n =
-  TH.reify n >>= \i ->
-  case i of
-    TH.VarI _ ty _ _ -> return ty
-    _ -> fail $ "hobbits Panic -- could not reify `" ++ show n ++ "'."
-#endif
 
 -- | @mkClosed@ is used with Template Haskell quotations to create closed terms
 -- of type 'Closed'. A quoted expression is closed if all of the names occuring in
