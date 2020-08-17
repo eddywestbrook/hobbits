@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell, ViewPatterns, PolyKinds #-}
+{-# LANGUAGE TemplateHaskell, ViewPatterns, PolyKinds, GADTs, PatternGuards #-}
 
 -- |
 -- Module      : Data.Binding.Hobbits.Closed
@@ -97,3 +97,25 @@ instance Closable a => Closable [a] where
   toClosed [] = $(mkClosed [| [] |])
   toClosed (a:as) =
     $(mkClosed [| (:) |]) `clApply` toClosed a `clApply` toClosed as
+
+-- | Object-level reification of the 'Closable' typeclass
+data IsClosable a where IsClosable :: Closable a => IsClosable a
+
+-- | Type functors @f@ where @f a@ is always 'Closable' for any @a@
+class ClosableAny1 f where
+  closableAny1 :: f a -> IsClosable (f a)
+
+-- | Helper function to use the proof returned by 'closableAny1'
+toClosedAny1 :: ClosableAny1 f => f a -> Closed (f a)
+toClosedAny1 x | IsClosable <- closableAny1 x = toClosed x
+
+instance ClosableAny1 Proxy where
+  closableAny1 _ = IsClosable
+
+instance ClosableAny1 (Member ctx) where
+  closableAny1 _ = IsClosable
+
+instance ClosableAny1 f => Closable (RAssign f ctx) where
+  toClosed MNil = $(mkClosed [| MNil |])
+  toClosed (xs :>: x) =
+    $(mkClosed [| (:>:) |]) `clApply` toClosed xs `clApply` toClosedAny1 x

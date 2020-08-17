@@ -69,12 +69,12 @@ nu f = MkMbFun (MNil :>: Proxy) (\(MNil :>: n) -> f n)
   The expression @nuMulti p f@ creates a multi-binding of zero or more
   names, one for each element of the vector @p@. The bound names are
   passed the names to @f@, which returns the body of the
-  multi-binding.  The argument @p@, of type @'MapRList' f ctx@, acts as a
+  multi-binding.  The argument @p@, of type @'RAssign' f ctx@, acts as a
   \"phantom\" argument, used to reify the list of types @ctx@ at the
   term level; thus it is unimportant what the type function @f@ is.
 -}
-nuMulti :: MapRList f ctx -> (MapRList Name ctx -> b) -> Mb ctx b
-nuMulti proxies f = MkMbFun (mapMapRList (const Proxy) proxies) f
+nuMulti :: RAssign f ctx -> (RAssign Name ctx -> b) -> Mb ctx b
+nuMulti proxies f = MkMbFun (mapRAssign (const Proxy) proxies) f
 
 -- | @nus = nuMulti@
 nus x = nuMulti x
@@ -100,7 +100,7 @@ extMb = mbCombine . fmap (nu . const)
 mbNameBoundP :: forall (a :: k1) (ctx :: RList k2).
                 Mb ctx (Name a) -> Either (Member ctx a) (Name a)
 mbNameBoundP (ensureFreshPair -> (names, n)) = helper names n where
-    helper :: MapRList Name c -> Name a -> Either (Member c a) (Name a)
+    helper :: RAssign Name c -> Name a -> Either (Member c a) (Name a)
     helper MNil n = Right n
     helper (names :>: (MkName i)) (MkName j)
       | i == j =
@@ -148,12 +148,12 @@ elimEmptyMb (ensureFreshPair -> (_, body)) = body
 
 
 -- Extract the proxy objects from an Mb inside of a fresh function
-freshFunctionProxies :: MapRList Proxy ctx1 -> (MapRList Name ctx1 -> Mb ctx2 a) ->
-                        MapRList Proxy ctx2
+freshFunctionProxies :: RAssign Proxy ctx1 -> (RAssign Name ctx1 -> Mb ctx2 a) ->
+                        RAssign Proxy ctx2
 freshFunctionProxies proxies1 f =
-    case f (mapMapRList (const $ MkName 0) proxies1) of
+    case f (mapRAssign (const $ MkName 0) proxies1) of
       MkMbFun proxies2 _ -> proxies2
-      MkMbPair _ ns _ -> mapMapRList (const Proxy) ns
+      MkMbPair _ ns _ -> mapRAssign (const Proxy) ns
 
 
 -- README: inner-most bindings come FIRST
@@ -161,7 +161,7 @@ freshFunctionProxies proxies1 f =
 mbCombine :: forall (c1 :: RList k) (c2 :: RList k) a b.
              Mb c1 (Mb c2 b) -> Mb (c1 :++: c2) b
 mbCombine (MkMbPair tRepr1 l1 (MkMbPair tRepr2 l2 b)) =
-  MkMbPair tRepr2 (appendMapRList l1 l2) b
+  MkMbPair tRepr2 (append l1 l2) b
 mbCombine (ensureFreshFun -> (proxies1, f1)) =
     -- README: we pass in Names with integer value 0 here in order to
     -- get out the proxies for the inner-most bindings; this is "safe"
@@ -169,35 +169,35 @@ mbCombine (ensureFreshFun -> (proxies1, f1)) =
     -- themselves
     let proxies2 = freshFunctionProxies proxies1 f1 in
     MkMbFun
-    (appendMapRList proxies1 proxies2)
+    (append proxies1 proxies2)
     (\ns ->
-         let (ns1, ns2) = splitMapRList Proxy proxies2 ns in
+         let (ns1, ns2) = split Proxy proxies2 ns in
          let (_, f2) = ensureFreshFun (f1 ns1) in
          f2 ns2)
 
 
 {-|
   Separates a binding into two nested bindings. The first argument, of
-  type @'MapRList' any c2@, is a \"phantom\" argument to indicate how
+  type @'RAssign' any c2@, is a \"phantom\" argument to indicate how
   the context @c@ should be split.
 -}
 mbSeparate :: forall (ctx1 :: RList k) (ctx2 :: RList k) (any :: k -> *) a.
-              MapRList any ctx2 -> Mb (ctx1 :++: ctx2) a ->
+              RAssign any ctx2 -> Mb (ctx1 :++: ctx2) a ->
               Mb ctx1 (Mb ctx2 a)
 mbSeparate c2 (MkMbPair tRepr ns a) =
     MkMbPair (MbTypeReprMb tRepr) ns1 (MkMbPair tRepr ns2 a) where
-        (ns1, ns2) = splitMapRList Proxy c2 ns
+        (ns1, ns2) = split Proxy c2 ns
 mbSeparate c2 (MkMbFun proxies f) =
-    MkMbFun proxies1 (\ns1 -> MkMbFun proxies2 (\ns2 -> f (appendMapRList ns1 ns2)))
+    MkMbFun proxies1 (\ns1 -> MkMbFun proxies2 (\ns2 -> f (append ns1 ns2)))
         where
-          (proxies1, proxies2) = splitMapRList Proxy c2 proxies
+          (proxies1, proxies2) = split Proxy c2 proxies
 
 
 -- | Returns a proxy object that enumerates all the types in ctx.
 mbToProxy :: forall (ctx :: RList k) (a :: *) .
-             Mb ctx a -> MapRList Proxy ctx
+             Mb ctx a -> RAssign Proxy ctx
 mbToProxy (MkMbFun proxies _) = proxies
-mbToProxy (MkMbPair _ ns _) = mapMapRList (\_ -> Proxy) ns
+mbToProxy (MkMbPair _ ns _) = mapRAssign (\_ -> Proxy) ns
 
 
 {-|
@@ -214,7 +214,7 @@ mbSwap (ensureFreshFun -> (proxies1, f1)) =
             snd (ensureFreshFun (f1 ns1)) ns2))
 
 -- | Put a value inside a multi-binding
-mbPure :: MapRList f ctx -> a -> Mb ctx a
+mbPure :: RAssign f ctx -> a -> Mb ctx a
 mbPure prxs = nuMulti prxs . const
 
 {-|
@@ -275,8 +275,8 @@ instance TypeCtx ctx => Applicative (Mb ctx) where
 >     nuWithElimMulti ('MNil' :>: f :>: a)
 >                     (\_ ('MNil' :>: 'Identity' f' :>: 'Identity' a') -> f' a')
 -}
-nuMultiWithElim :: (MapRList Name ctx -> MapRList Identity args -> b) ->
-                   MapRList (Mb ctx) args -> Mb ctx b
+nuMultiWithElim :: (RAssign Name ctx -> RAssign Identity args -> b) ->
+                   RAssign (Mb ctx) args -> Mb ctx b
 nuMultiWithElim f args =
   let proxies =
         case args of
@@ -284,16 +284,16 @@ nuMultiWithElim f args =
           (_ :>: arg1) -> mbToProxy arg1 in
   MkMbFun proxies
           (\ns ->
-            f ns $ mapMapRList (\arg ->
-                                 Identity $ snd (ensureFreshFun arg) ns) args)
+            f ns $ mapRAssign (\arg ->
+                                Identity $ snd (ensureFreshFun arg) ns) args)
 
 
 {-|
   Similar to 'nuMultiWithElim' but binds only one name. Note that the argument
   list here is allowed to be empty.
 -}
-nuWithElim :: (Name a -> MapRList Identity args -> b) ->
-              MapRList (Mb (RNil :> a)) args ->
+nuWithElim :: (Name a -> RAssign Identity args -> b) ->
+              RAssign (Mb (RNil :> a)) args ->
               Binding a b
 nuWithElim f MNil = nu $ \n -> f n MNil
 nuWithElim f args =
@@ -303,7 +303,7 @@ nuWithElim f args =
 {-|
   Similar to 'nuMultiWithElim' but takes only one argument
 -}
-nuMultiWithElim1 :: (MapRList Name ctx -> arg -> b) -> Mb ctx arg -> Mb ctx b
+nuMultiWithElim1 :: (RAssign Name ctx -> arg -> b) -> Mb ctx arg -> Mb ctx b
 nuMultiWithElim1 f arg =
     nuMultiWithElim (\names (MNil :>: Identity arg) -> f names arg)
     (MNil :>: arg)

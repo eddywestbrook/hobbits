@@ -52,7 +52,7 @@ import Data.Proxy
 import Data.Type.Equality
 --import Control.Monad.Identity
 
-import Data.Type.RList
+import Data.Type.RList hiding (map)
 import Data.Binding.Hobbits.Internal.Name
 import Data.Binding.Hobbits.Internal.Mb
 import Data.Binding.Hobbits.Internal.Closed
@@ -192,7 +192,7 @@ data NuMatchingObj a = NuMatching a => NuMatchingObj ()
 
 -- the NuMatchingList class, for saying that NuMatching holds for a context of types
 class NuMatchingList args where
-    nuMatchingListProof :: MapRList NuMatchingObj args
+    nuMatchingListProof :: RAssign NuMatchingObj args
 
 instance NuMatchingList RNil where
     nuMatchingListProof = MNil
@@ -213,11 +213,11 @@ instance (NuMatching1 f, NuMatching a) => NuMatching (f a) where
 
 {-
 instance {-# OVERLAPPABLE #-} (NuMatching1 f, NuMatchingList ctx) =>
-                              NuMatching (MapRList f ctx) where
+                              NuMatching (RAssign f ctx) where
     nuMatchingProof = MbTypeReprData $ MkMbTypeReprData $ helper nuMatchingListProof where
         helper :: NuMatching1 f =>
-                  MapRList NuMatchingObj args -> NameRefresher ->
-                  MapRList f args -> MapRList f args
+                  RAssign NuMatchingObj args -> NameRefresher ->
+                  RAssign f args -> RAssign f args
         helper MNil r MNil = MNil
         helper (proofs :>: NuMatchingObj ()) r (elems :>: (elem :: f a)) =
             case nuMatchingProof1 :: NuMatchingObj (f a) of
@@ -243,10 +243,10 @@ instance NuMatchingAny1 ((:~:) a) where
 instance NuMatching a => NuMatchingAny1 (Constant a) where
   nuMatchingAny1Proof = nuMatchingProof
 
-instance {-# OVERLAPPABLE #-} NuMatchingAny1 f => NuMatching (MapRList f ctx) where
+instance {-# OVERLAPPABLE #-} NuMatchingAny1 f => NuMatching (RAssign f ctx) where
     nuMatchingProof = MbTypeReprData $ MkMbTypeReprData helper where
-        helper :: NuMatchingAny1 f => NameRefresher -> MapRList f args ->
-                  MapRList f args
+        helper :: NuMatchingAny1 f => NameRefresher -> RAssign f args ->
+                  RAssign f args
         helper r MNil = MNil
         helper r (elems :>: elem) = helper r elems :>: mapNames r elem
 

@@ -26,7 +26,7 @@ import qualified Data.Type.RList as C
 data L a
 data D a
 
--- to make a function for MapRList (for pretty)
+-- to make a function for RAssign (for pretty)
 newtype StringF x = StringF String
 unStringF (StringF str) = str
 
@@ -52,10 +52,10 @@ lam f = Lam $ nu (f . Var)
 -- pretty print terms
 tpretty :: Term a -> String
 tpretty t = pretty' (emptyMb t) C.empty 0
-  where pretty' :: Mb c (Term a) -> MapRList StringF c -> Int -> String
+  where pretty' :: Mb c (Term a) -> RAssign StringF c -> Int -> String
         pretty' [nuP| Var b |] varnames n =
             case mbNameBoundP b of
-              Left pf  -> unStringF (C.mapRListLookup pf varnames)
+              Left pf  -> unStringF (C.get pf varnames)
               Right n -> "(free-var " ++ show n ++ ")"
         pretty' [nuP| Lam b |] varnames n =
             let x = "x" ++ show n in
@@ -98,7 +98,7 @@ instance Show (Decls a) where show = decls_pretty
 pretty :: DTerm a -> String
 pretty t = mpretty (emptyMb t) C.empty
 
-mpretty :: Mb c (DTerm a) -> MapRList StringF c -> String
+mpretty :: Mb c (DTerm a) -> RAssign StringF c -> String
 mpretty [nuP| TVar b |] varnames =
     mprettyName (mbNameBoundP b) varnames
 mpretty [nuP| TDVar b |] varnames =
@@ -107,7 +107,7 @@ mpretty [nuP| TApp b1 b2 |] varnames =
     "(" ++ mpretty b1 varnames
         ++ " " ++ mpretty b2 varnames ++ ")"
 
-mprettyName (Left pf) varnames = unStringF (C.mapRListLookup pf varnames)
+mprettyName (Left pf) varnames = unStringF (C.get pf varnames)
 mprettyName (Right n) varnames = "(free-var " ++ (show n) ++ ")"
         
 
@@ -116,7 +116,7 @@ decls_pretty :: Decls a -> String
 decls_pretty decls =
     "let\n" ++ (mdecls_pretty (emptyMb decls) C.empty 0)
 
-mdecls_pretty :: Mb c (Decls a) -> MapRList StringF c -> Int -> String
+mdecls_pretty :: Mb c (Decls a) -> RAssign StringF c -> Int -> String
 mdecls_pretty [nuP| Decls_Base t |] varnames n =
     "in " ++ (mpretty t varnames)
 mdecls_pretty [nuP| Decls_Cons decl rest |] varnames n =
@@ -124,7 +124,7 @@ mdecls_pretty [nuP| Decls_Cons decl rest |] varnames n =
     fname ++ " " ++ (mdecl_pretty decl varnames 0) ++ "\n"
     ++ mdecls_pretty (mbCombine rest) (varnames :>: (StringF fname)) (n+1)
 
-mdecl_pretty :: Mb c (Decl a) -> MapRList StringF c -> Int -> String
+mdecl_pretty :: Mb c (Decl a) -> RAssign StringF c -> Int -> String
 mdecl_pretty [nuP| Decl_One t|] varnames n =
   let vname = "x" ++ show n in
   vname ++ " = " ++ mpretty (mbCombine t) (varnames :>: StringF vname)

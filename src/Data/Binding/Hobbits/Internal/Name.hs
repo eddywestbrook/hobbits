@@ -38,9 +38,8 @@ newtype Name (a :: k) = MkName Int deriving (Typeable, Eq, Ord)
 instance Show (Name a) where
   showsPrec _ (MkName n) = showChar '#' . shows n . showChar '#'
 
-instance Show (MapRList Name c) where
-    show names = "[" ++ (concat $ intersperse "," $ mapRListToList $
-                        mapMapRList (Constant . show) names) ++ "]"
+instance Show (RAssign Name c) where
+    show names = "[" ++ (concat $ intersperse "," $ mapToList show names) ++ "]"
 
 
 -------------------------------------------------------------------------------
@@ -81,10 +80,10 @@ refreshName (NameRefresher nmap) (MkName i) =
 
 -- | Build a 'NameRefresher' that maps one sequence of names to another
 mkRefresher :: forall (ctx :: RList k) .
-               MapRList Name ctx -> MapRList Name ctx -> NameRefresher
+               RAssign Name ctx -> RAssign Name ctx -> NameRefresher
 mkRefresher ns1 ns2 =
-  NameRefresher $ IntMap.fromList $ mapRListToList $
-  mapMapRList2 (\(MkName i) (MkName j) -> Constant (i,j)) ns1 ns2
+  NameRefresher $ IntMap.fromList $ toList $
+  map2 (\(MkName i) (MkName j) -> Constant (i,j)) ns1 ns2
 
 -- | Extend a 'NameRefresher' with one more name mapping
 extRefresher :: forall (a :: k). NameRefresher -> Name a -> Name a ->
@@ -119,7 +118,7 @@ unsafeLookupC n = case memberFromLen n of
 
 
 -- building a proxy for each type in some unknown context
-data ExProxy where ExProxy :: MapRList Proxy ctx -> ExProxy
+data ExProxy where ExProxy :: RAssign Proxy ctx -> ExProxy
 proxyFromLen :: Int -> ExProxy
 proxyFromLen 0 = ExProxy MNil
 proxyFromLen n = case proxyFromLen (n - 1) of

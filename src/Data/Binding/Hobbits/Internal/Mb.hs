@@ -22,7 +22,7 @@ module Data.Binding.Hobbits.Internal.Mb where
 import Data.Typeable
 import Data.Proxy
 import Data.Type.Equality
-import Data.Type.RList
+import Data.Type.RList hiding (map)
 
 import Data.Binding.Hobbits.Internal.Name
 
@@ -39,8 +39,8 @@ import Data.Binding.Hobbits.Internal.Name
   that the names given in the pair can be relaced by fresher names.
 -}
 data Mb (ctx :: RList k) b
-    = MkMbFun (MapRList Proxy ctx) (MapRList Name ctx -> b)
-    | MkMbPair (MbTypeRepr b) (MapRList Name ctx) b
+    = MkMbFun (RAssign Proxy ctx) (RAssign Name ctx -> b)
+    | MkMbPair (MbTypeRepr b) (RAssign Name ctx) b
     deriving Typeable
 
 
@@ -83,15 +83,15 @@ mapNamesPf (MbTypeReprData (MkMbTypeReprData mapFun)) refresher x =
 
 
 -- | Ensures a multi-binding is in "fresh function" form
-ensureFreshFun :: Mb ctx a -> (MapRList Proxy ctx, MapRList Name ctx -> a)
+ensureFreshFun :: Mb ctx a -> (RAssign Proxy ctx, RAssign Name ctx -> a)
 ensureFreshFun (MkMbFun proxies f) = (proxies, f)
 ensureFreshFun (MkMbPair tRepr ns body) =
-    (mapMapRList (\_ -> Proxy) ns, \ns' ->
+    (mapRAssign (\_ -> Proxy) ns, \ns' ->
       mapNamesPf tRepr (mkRefresher ns ns') body)
 
 -- | Ensures a multi-binding is in "fresh pair" form
-ensureFreshPair :: Mb ctx a -> (MapRList Name ctx, a)
+ensureFreshPair :: Mb ctx a -> (RAssign Name ctx, a)
 ensureFreshPair (MkMbPair _ ns body) = (ns, body)
 ensureFreshPair (MkMbFun proxies f) =
-    let ns = mapMapRList (MkName . fresh_name) proxies in
+    let ns = mapRAssign (MkName . fresh_name) proxies in
     (ns, f ns)
