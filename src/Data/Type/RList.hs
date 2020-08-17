@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeOperators, EmptyDataDecls, RankNTypes #-}
 {-# LANGUAGE TypeFamilies, DataKinds, PolyKinds, KindSignatures #-}
-{-# LANGUAGE GADTs, TypeInType #-}
+{-# LANGUAGE GADTs, TypeInType, PatternGuards #-}
 
 -- |
 -- Module      : Data.Type.RList
@@ -164,6 +164,13 @@ mapRListModify (Member_Step mem') f (xs :>: x) = mapRListModify mem' f xs :>: x
 mapRListSet :: Member c a -> f a -> MapRList f c -> MapRList f c
 mapRListSet memb x = mapRListModify memb (const x)
 
+-- | Test if an object is an element of a 'MapRList', returning a 'Member' proof
+-- if it is
+mapRListElem :: TestEquality f => f a -> MapRList f ctx -> Maybe (Member ctx a)
+mapRListElem _ MNil = Nothing
+mapRListElem x (_ :>: y) | Just Refl <- testEquality x y = Just Member_Base
+mapRListElem x (xs :>: _) = fmap Member_Step $ mapRListElem x xs
+
 -- | Map a function on all elements of a 'MapRList' vector.
 mapMapRList :: (forall x. f x -> g x) -> MapRList f c -> MapRList g c
 mapMapRList _ MNil = MNil
@@ -174,8 +181,6 @@ mapMapRList2 :: (forall x. f x -> g x -> h x) ->
                 MapRList f c -> MapRList g c -> MapRList h c
 mapMapRList2 _ MNil MNil = MNil
 mapMapRList2 f (xs :>: x) (ys :>: y) = mapMapRList2 f xs ys :>: f x y
-mapMapRList2 _ _ _ =
-  error "Something is terribly wrong in mapMapRList2: this case should not happen!"
 
 mapRListTail :: MapRList f (ctx :> a) -> MapRList f ctx
 mapRListTail (xs :>: _) = xs
