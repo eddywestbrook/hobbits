@@ -22,7 +22,7 @@ module Data.Binding.Hobbits.Mb (
   Binding(),   -- hides Binding implementation
   Mb(),        -- hides MultiBind implementation
   -- * Multi-binding constructors
-  nu, nuMulti, nus, emptyMb, extMb,
+  nu, nuMulti, nus, emptyMb, extMb, extMbMulti,
   -- * Queries on names
   cmpName, hcmpName, mbNameBoundP, mbCmpName,
   -- * Operations on multi-bindings
