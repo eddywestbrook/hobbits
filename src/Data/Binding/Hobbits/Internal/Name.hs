@@ -65,7 +65,7 @@ instance TestEquality Name where
   testEquality = cmpName
 
 -- | Heterogeneous comparison of names, that could be at different kinds
-hcmpName :: forall (a :: k1) (b :: k2). Name a -> Name b -> Maybe (a :~~: b)
+hcmpName :: forall k1 k2 (a :: k1) (b :: k2). Name a -> Name b -> Maybe (a :~~: b)
 hcmpName (MkName n1) (MkName n2)
   | n1 == n2 = Just $ unsafeCoerce HRefl
   | otherwise = Nothing
@@ -79,14 +79,14 @@ refreshName (NameRefresher nmap) (MkName i) =
   MkName $ IntMap.findWithDefault i i nmap
 
 -- | Build a 'NameRefresher' that maps one sequence of names to another
-mkRefresher :: forall (ctx :: RList k) .
+mkRefresher :: forall k (ctx :: RList k) .
                RAssign Name ctx -> RAssign Name ctx -> NameRefresher
 mkRefresher ns1 ns2 =
   NameRefresher $ IntMap.fromList $ toList $
   map2 (\(MkName i) (MkName j) -> Constant (i,j)) ns1 ns2
 
 -- | Extend a 'NameRefresher' with one more name mapping
-extRefresher :: forall (a :: k). NameRefresher -> Name a -> Name a ->
+extRefresher :: forall k (a :: k). NameRefresher -> Name a -> Name a ->
                 NameRefresher
 extRefresher (NameRefresher nmap) (MkName n1) (MkName n2) =
   NameRefresher $

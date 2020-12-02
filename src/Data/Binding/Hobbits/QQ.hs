@@ -82,7 +82,7 @@ combineWrapKits (WrapKit {_varView = varViewO, _asXform = asXformO, _topXform = 
            _topXform = \b -> topXformO b . topXformI b}
 
 -- | Apply a 'WrapKit' to a pattern
-wrapVars :: Monad m => WrapKit -> Pat -> m Pat
+wrapVars :: MonadFail m => WrapKit -> Pat -> m Pat
 wrapVars (WrapKit {_varView = varView, _asXform = asXform, _topXform = topXform}) pat = do
   (pat', Any usedVarView) <- runWriterT m
   return $ topXform usedVarView pat'

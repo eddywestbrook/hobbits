@@ -142,11 +142,11 @@ get (Member_Step mem') (mc :>: _) = get mem' mc
 -- | Heterogeneous type application, including a proof that the input kind of
 -- the function equals the kind of the type argument
 data HApply (f :: k1 -> Type) (a :: k2) where
-  HApply :: forall (f :: k -> Type) (a :: k). f a -> HApply f a
+  HApply :: forall k (f :: k -> Type) (a :: k). f a -> HApply f a
 
 -- | Look up an element of an 'RAssign' vector using a 'Member' proof at what
 -- GHC thinks might be a different kind, i.e., heterogeneously
-hget :: forall (f :: k1 -> Type) (c :: RList k1) (a :: k2).
+hget :: forall k1 k2 (f :: k1 -> Type) (c :: RList k1) (a :: k2).
         Member c a -> RAssign f c -> HApply f a
 hget Member_Base (_ :>: x) = HApply x
 hget (Member_Step mem') (mc :>: _) = hget mem' mc

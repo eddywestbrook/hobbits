@@ -62,7 +62,7 @@ instance Show a => Show (Mb c a) where
   @nu f@ creates a binding which binds a fresh name @n@ and whose
   body is the result of @f n@.
 -}
-nu :: forall (a :: k1) (b :: *) . (Name a -> b) -> Binding a b
+nu :: forall k1 (a :: k1) (b :: *) . (Name a -> b) -> Binding a b
 nu f = MkMbFun (MNil :>: Proxy) (\(MNil :>: n) -> f n)
 
 {-|
@@ -103,7 +103,7 @@ extMbMulti ns mb = mbCombine $ fmap (nuMulti ns . const) mb
 > nu $ \n -> mbNameBoundP (nu $ \m -> m)  ==  nu $ \n -> Left Member_Base
 > nu $ \n -> mbNameBoundP (nu $ \m -> n)  ==  nu $ \n -> Right n
 -}
-mbNameBoundP :: forall (a :: k1) (ctx :: RList k2).
+mbNameBoundP :: forall k1 k2 (a :: k1) (ctx :: RList k2).
                 Mb ctx (Name a) -> Either (Member ctx a) (Name a)
 mbNameBoundP (ensureFreshPair -> (names, n)) = helper names n where
     helper :: RAssign Name c -> Name a -> Either (Member c a) (Name a)
@@ -131,7 +131,7 @@ case elemIndex n names of
   @Some Refl@ is returned when the names are equal and @Nothing@ is
   returned when they are not.
 -}
-mbCmpName :: forall (a :: k1) (b :: k1) (c :: RList k2).
+mbCmpName :: forall k1 k2 (a :: k1) (b :: k1) (c :: RList k2).
              Mb c (Name a) -> Mb c (Name b) -> Maybe (a :~: b)
 mbCmpName (ensureFreshPair -> (names, n1)) (ensureFreshFun -> (_, f2)) =
   cmpName n1 (f2 names)
@@ -164,7 +164,7 @@ freshFunctionProxies proxies1 f =
 
 -- README: inner-most bindings come FIRST
 -- | Combines a binding inside another binding into a single binding.
-mbCombine :: forall (c1 :: RList k) (c2 :: RList k) a b.
+mbCombine :: forall k (c1 :: RList k) (c2 :: RList k) a b.
              Mb c1 (Mb c2 b) -> Mb (c1 :++: c2) b
 mbCombine (MkMbPair tRepr1 l1 (MkMbPair tRepr2 l2 b)) =
   MkMbPair tRepr2 (append l1 l2) b
@@ -187,7 +187,7 @@ mbCombine (ensureFreshFun -> (proxies1, f1)) =
   type @'RAssign' any c2@, is a \"phantom\" argument to indicate how
   the context @c@ should be split.
 -}
-mbSeparate :: forall (ctx1 :: RList k) (ctx2 :: RList k) (any :: k -> *) a.
+mbSeparate :: forall k (ctx1 :: RList k) (ctx2 :: RList k) (any :: k -> *) a.
               RAssign any ctx2 -> Mb (ctx1 :++: ctx2) a ->
               Mb ctx1 (Mb ctx2 a)
 mbSeparate c2 (MkMbPair tRepr ns a) =
@@ -200,7 +200,7 @@ mbSeparate c2 (MkMbFun proxies f) =
 
 
 -- | Returns a proxy object that enumerates all the types in ctx.
-mbToProxy :: forall (ctx :: RList k) (a :: *) .
+mbToProxy :: forall k (ctx :: RList k) (a :: *) .
              Mb ctx a -> RAssign Proxy ctx
 mbToProxy (MkMbFun proxies _) = proxies
 mbToProxy (MkMbPair _ ns _) = mapRAssign (\_ -> Proxy) ns
