@@ -31,6 +31,7 @@ import Language.Haskell.TH.Quote
 
 import qualified Data.Generics as SYB
 import Control.Monad.Writer (runWriterT, tell)
+import qualified Control.Monad.Fail as Fail
 import Data.Monoid (Any(..))
 
 import qualified Data.Binding.Hobbits.Internal.Utilities as IU
@@ -82,7 +83,7 @@ combineWrapKits (WrapKit {_varView = varViewO, _asXform = asXformO, _topXform = 
            _topXform = \b -> topXformO b . topXformI b}
 
 -- | Apply a 'WrapKit' to a pattern
-wrapVars :: MonadFail m => WrapKit -> Pat -> m Pat
+wrapVars :: Fail.MonadFail m => WrapKit -> Pat -> m Pat
 wrapVars (WrapKit {_varView = varView, _asXform = asXform, _topXform = topXform}) pat = do
   (pat', Any usedVarView) <- runWriterT m
   return $ topXform usedVarView pat'
