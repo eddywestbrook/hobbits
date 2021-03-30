@@ -26,8 +26,10 @@
 module Data.Binding.Hobbits.NameSet (
   NameSet(), SomeName(..)
   , empty, singleton, fromList, toList
+  , namesToNamesList, fromRAssign
+  , SomeRAssign(..), namesListToNames, toRAssign
   , insert, delete, member, null, size
-  , union, unions, difference, (\\), intersection
+  , union, unions, difference, (\\), intersection, nameSetIsSubsetOf
   , map, foldr, foldl
   , liftNameSet
   ) where

@@ -27,7 +27,7 @@ module Data.Binding.Hobbits.Mb (
   cmpName, hcmpName, mbNameBoundP, mbCmpName,
   -- * Operations on multi-bindings
   elimEmptyMb, mbCombine, mbSeparate, mbToProxy, mbSwap, mbPure, mbApply,
-  mbMap2,
+  mbMap2, mbMap3, mbMap4,
   -- * Eliminators for multi-bindings
   nuMultiWithElim, nuWithElim, nuMultiWithElim1, nuWithElim1
 ) where
