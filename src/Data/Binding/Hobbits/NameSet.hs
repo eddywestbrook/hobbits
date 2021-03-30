@@ -39,7 +39,10 @@ import Data.IntSet (IntSet)
 import qualified Data.IntSet as IntSet
 import Data.Kind
 import qualified Data.Foldable as Foldable
+import Data.Type.Equality
 
+import Data.Type.RList (RList, RNil, (:>), RAssign(..))
+import qualified Data.Type.RList as RL
 import Data.Binding.Hobbits.Internal.Name
 import Data.Binding.Hobbits.Mb
 import Data.Binding.Hobbits.NuMatching
@@ -51,6 +54,10 @@ newtype NameSet k = NameSet { unNameSet :: IntSet }
 
 -- | A 'Name' of some unknown type of kind @k@
 data SomeName k = forall (a :: k). SomeName (Name a)
+
+instance Eq (SomeName k) where
+  (SomeName n1) == (SomeName n2) | Just Refl <- testEquality n1 n2 = True
+  _ == _ = False
 
 $(mkNuMatching [t| forall k. SomeName k |])
 
@@ -70,6 +77,31 @@ fromList =
 -- | Convert a 'NameSet' to a list
 toList :: NameSet k -> [SomeName k]
 toList (NameSet s) = Prelude.map (SomeName . MkName) (IntSet.toList s)
+
+-- | Convert an existentially quantified assignment of names to a context to a
+-- list of existentially quantified names
+namesToNamesList :: RAssign (Name :: k -> Type) ns -> [SomeName k]
+namesToNamesList = RL.mapToList SomeName
+
+-- | Convert an 'RAssign' of names to a 'NameSet'
+fromRAssign :: RAssign (Name :: k -> Type) ctx -> NameSet k
+fromRAssign = fromList . namesToNamesList
+
+-- | An 'RAssign' of some unknown context
+data SomeRAssign (f :: k -> *) =
+  forall (ctx :: RList k). SomeRAssign (RAssign f ctx)
+
+-- | Convert a list of existentially quantified names to an existentially
+-- quantified assignment of names to a context
+namesListToNames :: [SomeName k] -> SomeRAssign (Name :: k -> Type)
+namesListToNames =
+  Foldable.foldl (\(SomeRAssign ns) (SomeName n) -> SomeRAssign (ns :>: n))
+                 (SomeRAssign MNil)
+
+-- | Convert a 'NameSet' to an 'RAssign'
+toRAssign :: NameSet k -> SomeRAssign (Name :: k -> Type)
+toRAssign = foldl (\(SomeRAssign ns) n -> SomeRAssign (ns :>: n))
+                  (SomeRAssign MNil)
 
 -- | Insert a name into a 'NameSet'
 insert :: Name (a::k) -> NameSet k -> NameSet k
@@ -110,6 +142,10 @@ difference (NameSet s1) (NameSet s2) = NameSet $ IntSet.difference s1 s2
 -- | Take the intersection of two 'NameSet's
 intersection :: NameSet k -> NameSet k -> NameSet k
 intersection (NameSet s1) (NameSet s2) = NameSet $ IntSet.intersection s1 s2
+
+-- | Checks whether a name set is a subset of another
+nameSetIsSubsetOf :: NameSet k -> NameSet k -> Bool
+nameSetIsSubsetOf s1 s2 = null $ difference s1 s2
 
 -- | Map a function across all elements of a 'NameSet'
 map :: (forall (a::k). Name a -> Name a) -> NameSet k -> NameSet k

@@ -29,14 +29,18 @@
 module Data.Binding.Hobbits.MonadBind (MonadBind(..), MonadStrongBind(..)) where
 
 import Data.Binding.Hobbits.Closed
-import Data.Binding.Hobbits.Liftable (mbLift)
+import Data.Binding.Hobbits.Liftable (Liftable(..), mbMaybe)
 import Data.Binding.Hobbits.Mb
 import Data.Binding.Hobbits.NuMatching
 import Data.Binding.Hobbits.QQ
 
+import Control.Monad.Trans (lift)
+import Control.Monad.Trans.Maybe (MaybeT(..))
 import Control.Monad.Identity (Identity(..))
+import Control.Monad.Except (ExceptT(..), runExceptT)
 import Control.Monad.Reader (ReaderT(..))
-import Control.Monad.State (StateT(..), get, lift, put, runStateT)
+import qualified Control.Monad.State.Lazy as Lazy
+import qualified Control.Monad.State.Strict as Strict
 
 -- | The class of name-binding monads
 class Monad m => MonadBind m where
@@ -51,8 +55,17 @@ instance MonadBind Identity where
   mbM = Identity . fmap runIdentity
 
 instance MonadBind Maybe where
-  mbM [nuP| Just x |] = return x
-  mbM [nuP| Nothing |] = Nothing
+  mbM = mbMaybe
+
+instance MonadBind m => MonadBind (MaybeT m) where
+  mbM = MaybeT . fmap mbM . mbM . fmap runMaybeT
+
+instance Liftable e => MonadBind (Either e) where
+  mbM [nuP| Right mb_a |] = Right mb_a
+  mbM [nuP| Left mb_e |] = Left $ mbLift mb_e
+
+instance (MonadBind m, Liftable e) => MonadBind (ExceptT e m) where
+  mbM = ExceptT . fmap mbM . mbM . fmap runExceptT
 
 instance MonadBind m => MonadBind (ReaderT r m) where
   mbM mb = ReaderT $ \r -> mbM $ fmap (flip runReaderT r) mb
@@ -75,14 +88,24 @@ class NuMatching s => BindState s where
 instance BindState (Closed s) where
   bindState = mbLift
 
-instance (MonadBind m, BindState s) => MonadBind (StateT s m) where
-  mbM mb_m = StateT $ \s ->
-    mbM (fmap (\m -> runStateT m s) mb_m) >>= \mb_as ->
+instance (MonadBind m, BindState s) => MonadBind (Lazy.StateT s m) where
+  mbM mb_m = Lazy.StateT $ \s ->
+    mbM (fmap (\m -> Lazy.runStateT m s) mb_m) >>= \mb_as ->
     return (fmap fst mb_as, bindState (fmap snd mb_as))
 
-instance (MonadStrongBind m, BindState s) => MonadStrongBind (StateT s m) where
-  strongMbM mb_m = StateT $ \s ->
-    strongMbM (fmap (\m -> runStateT m s) mb_m) >>= \mb_as ->
+instance (MonadStrongBind m, BindState s) => MonadStrongBind (Lazy.StateT s m) where
+  strongMbM mb_m = Lazy.StateT $ \s ->
+    strongMbM (fmap (\m -> Lazy.runStateT m s) mb_m) >>= \mb_as ->
+    return (fmap fst mb_as, bindState (fmap snd mb_as))
+
+instance (MonadBind m, BindState s) => MonadBind (Strict.StateT s m) where
+  mbM mb_m = Strict.StateT $ \s ->
+    mbM (fmap (\m -> Strict.runStateT m s) mb_m) >>= \mb_as ->
+    return (fmap fst mb_as, bindState (fmap snd mb_as))
+
+instance (MonadStrongBind m, BindState s) => MonadStrongBind (Strict.StateT s m) where
+  strongMbM mb_m = Strict.StateT $ \s ->
+    strongMbM (fmap (\m -> Strict.runStateT m s) mb_m) >>= \mb_as ->
     return (fmap fst mb_as, bindState (fmap snd mb_as))
 
 
@@ -93,10 +116,18 @@ class Monad m => MonadClosed m where
 instance MonadClosed Identity where
   closedM = Identity . clApply $(mkClosed [| runIdentity |])
 
-instance (MonadClosed m, Closable s) => MonadClosed (StateT s m) where
+instance (MonadClosed m, Closable s) => MonadClosed (Lazy.StateT s m) where
   closedM clm =
-    do s <- get
-       cl_a_s <- lift $ closedM ($(mkClosed [| runStateT |]) `clApply` clm
+    do s <- Lazy.get
+       cl_a_s <- lift $ closedM ($(mkClosed [| Lazy.runStateT |]) `clApply` clm
                                  `clApply` toClosed s)
-       put (snd $ unClosed cl_a_s)
+       Lazy.put (snd $ unClosed cl_a_s)
+       return ($(mkClosed [| fst |]) `clApply` cl_a_s)
+
+instance (MonadClosed m, Closable s) => MonadClosed (Strict.StateT s m) where
+  closedM clm =
+    do s <- Strict.get
+       cl_a_s <- lift $ closedM ($(mkClosed [| Strict.runStateT |]) `clApply` clm
+                                 `clApply` toClosed s)
+       Strict.put (snd $ unClosed cl_a_s)
        return ($(mkClosed [| fst |]) `clApply` cl_a_s)

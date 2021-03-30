@@ -19,7 +19,7 @@
 
 module Data.Binding.Hobbits.Liftable where
 
-import Data.Type.RList
+import Data.Type.RList as RL
 import Data.Binding.Hobbits.Mb
 import Data.Binding.Hobbits.Internal.Mb
 import Data.Binding.Hobbits.QQ
@@ -30,6 +30,7 @@ import Data.Binding.Hobbits.NuMatchingInstances
 import Data.Ratio
 import Data.Proxy
 import Numeric.Natural
+import Data.Functor.Compose
 import Data.Type.Equality
 
 
@@ -39,6 +40,15 @@ import Data.Type.Equality
 -}
 class NuMatching a => Liftable a where
     mbLift :: Mb ctx a -> a
+
+{-|
+  The class @LiftableAny1 f@ gives a family of lifting functions for the
+  functor f, which can take any data of type @f a@ out of a multi-binding of
+  type @'Mb' ctx (f a)@.
+-}
+class NuMatchingAny1 f => LiftableAny1 f where
+  mbLiftAny1 :: Mb ctx (f a) -> f a
+
 
 -------------------------------------------------------------------------------
 -- * Lifting instances that must be defined inside the library abstraction boundary
@@ -64,6 +74,9 @@ instance Liftable Natural where
 -- * Lifting instances and related functions that could be defined outside the library
 -------------------------------------------------------------------------------
 
+instance LiftableAny1 Proxy where
+  mbLiftAny1 = mbLift
+
 -- README: this requires overlapping instances, because it clashes
 -- with Liftable2, but this instance is better because it does not
 -- require c nor a to be liftable
@@ -76,6 +89,17 @@ mbList :: NuMatching a => Mb c [a] -> [Mb c a]
 mbList [nuP| [] |] = []
 mbList [nuP| x : xs |] = x : mbList xs
 
+-- | Convert an 'RAssign' in a binding to an 'RAssign' of bindings
+mbRAssign :: NuMatchingAny1 f => Mb ctx (RAssign f as) ->
+             RAssign (Compose (Mb ctx) f) as
+mbRAssign [nuP| MNil |] = MNil
+mbRAssign [nuP| mb_xs :>: mb_x |] = mbRAssign mb_xs :>: Compose mb_x
+
+-- | Convert a 'Maybe' in a binding to a 'Maybe' of a binding
+mbMaybe :: NuMatching a => Mb ctx (Maybe a) -> Maybe (Mb ctx a)
+mbMaybe [nuP| Just mb_a |] = Just mb_a
+mbMaybe [nuP| Nothing |] = Nothing
+
 instance (Integral a, NuMatching a) => NuMatching (Ratio a) where
   nuMatchingProof =
     isoMbTypeRepr (\r -> (numerator r, denominator r)) (\(n,d) -> n%d)
@@ -86,6 +110,14 @@ instance (Integral a, Liftable a) => Liftable (Ratio a) where
 instance Liftable a => Liftable [a] where
     mbLift [nuP| [] |] = []
     mbLift [nuP| x : xs |] = (mbLift x) : (mbLift xs)
+
+instance LiftableAny1 f => Liftable (RAssign f ctx) where
+  mbLift [nuP| MNil |] = MNil
+  mbLift [nuP| xs :>: x |] = mbLift xs :>: mbLiftAny1 x
+
+-- | Convert an 'RAssign' in a binding to an 'RAssign' of 'Proxy's
+mbRAssignProxies :: Mb ctx (RAssign f as) -> RAssign Proxy as
+mbRAssignProxies = mbLift . fmap (RL.map (const Proxy))
 
 instance Liftable () where
     mbLift [nuP| () |] = ()

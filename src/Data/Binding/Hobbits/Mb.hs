@@ -236,6 +236,16 @@ mbApply (ensureFreshFun -> (proxies, f_fun)) (ensureFreshFun -> (_, f_arg)) =
 mbMap2 :: (a -> b -> c) -> Mb ctx a -> Mb ctx b -> Mb ctx c
 mbMap2 f mb1 mb2 = fmap f mb1 `mbApply` mb2
 
+-- | Lift a ternary function function to `Mb`s
+mbMap3 :: (a -> b -> c -> d) -> Mb ctx a -> Mb ctx b -> Mb ctx c -> Mb ctx d
+mbMap3 f mb1 mb2 mb3 = mbMap2 f mb1 mb2 `mbApply` mb3
+
+-- | Lift a quaternary function function to `Mb`s
+mbMap4 :: (a -> b -> c -> d -> e) ->
+          Mb ctx a -> Mb ctx b -> Mb ctx c -> Mb ctx d -> Mb ctx e
+mbMap4 f mb1 mb2 mb3 mb4 = mbMap3 f mb1 mb2 mb3 `mbApply` mb4
+
+
 -------------------------------------------------------------------------------
 -- Functor and Applicative instances
 -------------------------------------------------------------------------------

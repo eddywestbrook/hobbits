@@ -239,6 +239,9 @@ instance {-# INCOHERENT #-} NuMatchingAny1 f => NuMatching (f a) where
 instance NuMatchingAny1 Name where
   nuMatchingAny1Proof = nuMatchingProof
 
+instance NuMatchingAny1 Proxy where
+  nuMatchingAny1Proof = nuMatchingProof
+
 instance NuMatchingAny1 ((:~:) a) where
   nuMatchingAny1Proof = nuMatchingProof
 
@@ -252,6 +255,8 @@ instance {-# OVERLAPPABLE #-} NuMatchingAny1 f => NuMatching (RAssign f ctx) whe
         helper r MNil = MNil
         helper r (elems :>: elem) = helper r elems :>: mapNames r elem
 
+instance NuMatchingAny1 f => NuMatchingAny1 (RAssign f) where
+  nuMatchingAny1Proof = nuMatchingProof
 
 -- now we define some TH to create NuMatchings
 

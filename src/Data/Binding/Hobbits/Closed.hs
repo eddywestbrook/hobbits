@@ -24,6 +24,7 @@ module Data.Binding.Hobbits.Closed (
 ) where
 
 import Data.Proxy
+import Numeric.Natural
 import Data.Type.RList
 import Data.Binding.Hobbits.Internal.Name
 import Data.Binding.Hobbits.Internal.Mb
@@ -71,6 +72,9 @@ class Closable a where
   toClosed :: a -> Closed a
 
 instance Closable Integer where
+  toClosed i = Closed i
+
+instance Closable Natural where
   toClosed i = Closed i
 
 instance Closable (Member ctx a) where

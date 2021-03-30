@@ -17,9 +17,17 @@
 -- name-bindings, where the most recent name-binding is intuitively at the end
 -- of the context.
 
-module Data.Type.RList where
+module Data.Type.RList (
+    RList, RNil, (:>), (:++:)
+  , Member(..), weakenMemberL
+  , Append(..), mkAppend, mkMonoAppend, proxiesFromAppend
+  , RAssign(..), empty, singleton, get, HApply(..), hget, modify, set
+  , memberElem, SplitAtMemberRet(..), memberSplitAt, map, mapRAssign
+  , map2, head, tail, toList, mapToList, append, foldr, split
+  , members, TypeCtx(..), appendAssoc, appendRNilConsEq, prependRNilEq, Eq1(..)
+  ) where
 
-import Prelude hiding (map, foldr)
+import Prelude hiding (map, foldr, head, tail)
 import Data.Kind
 import Data.Type.Equality
 import Data.Proxy (Proxy(..))
@@ -34,6 +42,9 @@ import Data.Typeable
 data RList a
   = RNil
   | (RList a) :> a
+
+type RNil = 'RNil
+type (:>) = '(:>)
 
 -- | Append two 'RList's at the type level
 type family ((r1 :: RList k) :++: (r2 :: RList k)) :: RList k
@@ -166,6 +177,18 @@ memberElem _ MNil = Nothing
 memberElem x (_ :>: y) | Just Refl <- testEquality x y = Just Member_Base
 memberElem x (xs :>: _) = fmap Member_Step $ memberElem x xs
 
+-- | Existential return value from 'memberSplitAt'
+data SplitAtMemberRet f ctx a where
+  SplitAtMemberRet :: RAssign f ctx1 -> f a -> RAssign f ctx2 ->
+                      SplitAtMemberRet f (ctx1 :> a :++: ctx2) a
+
+-- | Split an assignment at the point specified by a 'Member' proof
+memberSplitAt :: RAssign f ctx -> Member ctx a -> SplitAtMemberRet f ctx a
+memberSplitAt (ctx :>: x) Member_Base = SplitAtMemberRet ctx x MNil
+memberSplitAt (ctx :>: y) (Member_Step memb) =
+  case memberSplitAt ctx memb of
+    SplitAtMemberRet ctx1 x ctx2 -> SplitAtMemberRet ctx1 x (ctx2 :>: y)
+
 -- | Map a function on all elements of an 'RAssign' vector.
 map :: (forall x. f x -> g x) -> RAssign f c -> RAssign g c
 map _ MNil = MNil
@@ -180,6 +203,10 @@ map2 :: (forall x. f x -> g x -> h x) ->
                 RAssign f c -> RAssign g c -> RAssign h c
 map2 _ MNil MNil = MNil
 map2 f (xs :>: x) (ys :>: y) = map2 f xs ys :>: f x y
+
+-- | Take the head of an 'RAssign'
+head :: RAssign f (ctx :> a) -> f a
+head (_ :>: x) = x
 
 -- | Take the tail of an 'RAssign'
 tail :: RAssign f (ctx :> a) -> RAssign f ctx
@@ -225,8 +252,46 @@ members (c :>: _) = map Member_Step (members c) :>: Member_Base
 class TypeCtx ctx where
   typeCtxProxies :: RAssign Proxy ctx
 
-instance TypeCtx RNil where
+instance TypeCtx 'RNil where
   typeCtxProxies = MNil
 
-instance TypeCtx ctx => TypeCtx (ctx :> a) where
+instance TypeCtx ctx => TypeCtx (ctx ':> a) where
   typeCtxProxies = typeCtxProxies :>: Proxy
+
+
+-- | Proof that append on right-lists is associative
+appendAssoc :: f1 ctx1 -> f2 ctx2 -> RAssign f3 ctx3 ->
+               ctx1 :++: (ctx2 :++: ctx3) :~: (ctx1 :++: ctx2) :++: ctx3
+appendAssoc _ _ MNil = Refl
+appendAssoc c1 c2 (c3 :>: _) =
+  case appendAssoc c1 c2 c3 of
+    Refl -> Refl
+
+-- | Proof that appending a right-list that starts with @a@ is the same as
+-- consing @a@ and then appending
+appendRNilConsEq :: prx1 ps1 -> prx_a a -> RAssign f ps2 ->
+                    (ps1 :++: (RNil :> a :++: ps2)) :~: (ps1 :> a :++: ps2)
+appendRNilConsEq _ _ MNil = Refl
+appendRNilConsEq ps1 a (ps2 :>: _)
+  | Refl <- appendRNilConsEq ps1 a ps2 = Refl
+
+-- | Proof that prepending an empty 'RList' is the identity
+prependRNilEq :: RAssign f ctx -> RNil :++: ctx :~: ctx
+prependRNilEq MNil = Refl
+prependRNilEq (ctx :>: _) | Refl <- prependRNilEq ctx = Refl
+
+
+instance TestEquality f => TestEquality (RAssign f) where
+  testEquality MNil MNil = Just Refl
+  testEquality (xs1 :>: x1) (xs2 :>: x2)
+    | Just Refl <- testEquality xs1 xs2
+    , Just Refl <- testEquality x1 x2
+    = Just Refl
+  testEquality _ _ = Nothing
+
+class Eq1 f where
+  eq1 :: f a -> f a -> Bool
+
+instance Eq1 f => Eq (RAssign f ctx) where
+  MNil == MNil = True
+  (xs1 :>: x1) == (xs2 :>: x2) = xs1 == xs2 && eq1 x1 x2
