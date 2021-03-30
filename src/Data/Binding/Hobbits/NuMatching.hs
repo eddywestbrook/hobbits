@@ -269,7 +269,7 @@ thd3 (_,_,z) = z
 
 type Names = (TH.Name, TH.Name, TH.Name)
 
-mapNamesType a = [t| forall ctx. NameRefresher -> $a -> $a |]
+mapNamesType a = [t| NameRefresher -> $a -> $a |]
 
 {-|
   Template Haskell function for creating NuMatching instances for (G)ADTs.
@@ -296,7 +296,7 @@ mkNuMatching tQ =
     do t <- tQ
        (cxt, cType, tName, constrs, tyvars) <- getMbTypeReprInfoTop t
        fName <- newName "f"
-       refrName <- newName "refresher"
+       refrName <- newName "_refresher"
        clauses <- getClauses (tName, fName, refrName) constrs
        mapNamesT <- mapNamesType (return cType)
        return [mkInstanceD
