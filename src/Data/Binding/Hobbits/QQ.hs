@@ -29,7 +29,7 @@
 --
 -- > case mbMatch (nu Left) of [nuMP| Left x |] -> x  ==  nu id
 
-module Data.Binding.Hobbits.QQ (nuP, mbMatch, nuMP, clP, clNuP) where
+module Data.Binding.Hobbits.QQ (nuP, MatchedMb, mbMatch, nuMP, clP, clNuP) where
 
 import Language.Haskell.TH.Syntax as TH
 import Language.Haskell.TH.Ppr as TH
