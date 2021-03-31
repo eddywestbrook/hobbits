@@ -54,14 +54,14 @@ tpretty :: Term a -> String
 tpretty t = pretty' (emptyMb t) C.empty 0
   where pretty' :: Mb c (Term a) -> RAssign StringF c -> Int -> String
         pretty' mb_x varnames n = case mbMatch mb_x of
-          [nuPM| Var b |] ->
+          [nuMP| Var b |] ->
             case mbNameBoundP b of
               Left pf  -> unStringF (C.get pf varnames)
               Right n -> "(free-var " ++ show n ++ ")"
-          [nuPM| Lam b |] ->
+          [nuMP| Lam b |] ->
             let x = "x" ++ show n in
             "(\\" ++ x ++ "." ++ pretty' (mbCombine b) (varnames :>: (StringF x)) (n+1) ++ ")"
-          [nuPM| App b1 b2 |] ->
+          [nuMP| App b1 b2 |] ->
             "(" ++ pretty' b1 varnames n ++ " " ++ pretty' b2 varnames n ++ ")"
 
 ------------------------------------------------------------
@@ -101,11 +101,11 @@ pretty t = mpretty (emptyMb t) C.empty
 
 mpretty :: Mb c (DTerm a) -> RAssign StringF c -> String
 mpretty mb_x varnames = case mbMatch mb_x of
-  [nuPM| TVar b |] ->
+  [nuMP| TVar b |] ->
     mprettyName (mbNameBoundP b) varnames
-  [nuPM| TDVar b |] ->
+  [nuMP| TDVar b |] ->
     mprettyName (mbNameBoundP b) varnames
-  [nuPM| TApp b1 b2 |] ->
+  [nuMP| TApp b1 b2 |] ->
     "(" ++ mpretty b1 varnames
         ++ " " ++ mpretty b2 varnames ++ ")"
 
@@ -120,18 +120,18 @@ decls_pretty decls =
 
 mdecls_pretty :: Mb c (Decls a) -> RAssign StringF c -> Int -> String
 mdecls_pretty mb_x varnames n = case mbMatch mb_x of
-  [nuPM| Decls_Base t |] ->
+  [nuMP| Decls_Base t |] ->
     "in " ++ (mpretty t varnames)
-  [nuPM| Decls_Cons decl rest |] ->
+  [nuMP| Decls_Cons decl rest |] ->
     let fname = "F" ++ show n in
     fname ++ " " ++ (mdecl_pretty decl varnames 0) ++ "\n"
     ++ mdecls_pretty (mbCombine rest) (varnames :>: (StringF fname)) (n+1)
 
 mdecl_pretty :: Mb c (Decl a) -> RAssign StringF c -> Int -> String
 mdecl_pretty mb_x varnames n = case mbMatch mb_x of
-  [nuPM| Decl_One t|] ->
+  [nuMP| Decl_One t|] ->
     let vname = "x" ++ show n in
     vname ++ " = " ++ mpretty (mbCombine t) (varnames :>: StringF vname)
-  [nuPM| Decl_Cons d|] ->
+  [nuMP| Decl_Cons d|] ->
     let vname = "x" ++ show n in
     vname ++ " " ++ mdecl_pretty (mbCombine d) (varnames :>: StringF vname) (n+1)

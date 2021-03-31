@@ -62,8 +62,8 @@ instance MonadBind m => MonadBind (MaybeT m) where
 
 instance Liftable e => MonadBind (Either e) where
   mbM mb_x = case mbMatch mb_x of
-    [nuPM| Right mb_a |] -> Right mb_a
-    [nuPM| Left mb_e |] -> Left $ mbLift mb_e
+    [nuMP| Right mb_a |] -> Right mb_a
+    [nuMP| Left mb_e |] -> Left $ mbLift mb_e
 
 instance (MonadBind m, Liftable e) => MonadBind (ExceptT e m) where
   mbM = ExceptT . fmap mbM . mbM . fmap runExceptT

@@ -98,9 +98,9 @@ ensureFreshPair (MkMbFun proxies f) =
 
 
 -- | A wrapper for the "fresh pair" representation of a multi-binding, for use
--- in pattern matching (see 'mbMatch' and 'nuPM')
+-- in pattern matching (see 'mbMatch' and 'nuMP')
 data MatchedMb ctx a = MatchedMb (RAssign Name ctx) a
 
--- | Prepare a muli-binding for a pattern match, for use with 'nuPM'
+-- | Prepare a muli-binding for a pattern match, for use with 'nuMP'
 mbMatch :: Mb ctx a -> MatchedMb ctx a
 mbMatch (ensureFreshPair -> (ns, x)) = MatchedMb ns x

@@ -28,7 +28,7 @@ module Data.Binding.Hobbits (
 
   -- * Pattern-matching multi-bindings and closed terms
   module Data.Binding.Hobbits.QQ,
-  -- | The 'Data.Binding.Hobbits.QQ.nuP' and 'Data.Binding.Hobbits.QQ.nuPM'
+  -- | The 'Data.Binding.Hobbits.QQ.nuP' and 'Data.Binding.Hobbits.QQ.nuMP'
   -- quasiquoters allow safe pattern matching on 'Data.Binding.Hobbits.Mb.Mb'
   -- values.
 

@@ -24,12 +24,12 @@
 -- for both simultaneously: @'Closed' ('Mb' ctx a)@.
 --
 -- One issue with 'nuP' is that GHC cannot detect whether pattern matches
--- using it are complete. To get around this, use the similar 'nuPM' along
+-- using it are complete. To get around this, use the similar 'nuMP' along
 -- with 'mbMatch' as follows:
 --
--- > case mbMatch (nu Left) of [nuPM| Left x |] -> x  ==  nu id
+-- > case mbMatch (nu Left) of [nuMP| Left x |] -> x  ==  nu id
 
-module Data.Binding.Hobbits.QQ (nuP, mbMatch, nuPM, clP, clNuP) where
+module Data.Binding.Hobbits.QQ (nuP, mbMatch, nuMP, clP, clNuP) where
 
 import Language.Haskell.TH.Syntax as TH
 import Language.Haskell.TH.Ppr as TH
@@ -158,7 +158,7 @@ nuMKit topVar namesVar = WrapKit {_varView = varView, _asXform = asXform, _topXf
 
 -- | Quasi-quoter for patterns that match over 'MatchedMb', for use with
 -- 'mbMatch'
-nuPM = patQQ "nuPM" $ \s -> do
+nuMP = patQQ "nuMP" $ \s -> do
   topVar <- newName "topMb"
   namesVar <- newName "topNames"
   parseHere s >>= wrapVars (nuMKit topVar namesVar)
