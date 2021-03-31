@@ -189,9 +189,10 @@ liftNameMap :: forall ctx f a. NuMatchingAny1 f =>
                Mb ctx (NameMap f) -> NameMap f
 liftNameMap lifter = helper . fmap assocs where
   helper :: Mb ctx [NameAndElem f] -> NameMap f
-  helper [nuP| [] |] = empty
-  helper [nuP| (NameAndElem mb_n mb_f):mb_elems |]
-    | Right n <- mbNameBoundP mb_n
-    , Just f <- lifter mb_f
-    = insert n f (helper mb_elems)
-  helper [nuP| _:mb_elems |] = helper mb_elems
+  helper mb_x = case mbMatch mb_x of
+    [nuPM| [] |] -> empty
+    [nuPM| (NameAndElem mb_n mb_f):mb_elems |]
+      | Right n <- mbNameBoundP mb_n
+      , Just f <- lifter mb_f
+      -> insert n f (helper mb_elems)
+    [nuPM| _:mb_elems |] -> helper mb_elems

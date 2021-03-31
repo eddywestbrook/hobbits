@@ -168,6 +168,7 @@ liftNameSet :: Mb ctx (NameSet (k :: Type)) -> NameSet k
 liftNameSet mb_s = fromList $ mapMaybe helper $ mbList $ fmap toList mb_s
   where
     helper :: forall ctx' k'. Mb ctx' (SomeName k') -> Maybe (SomeName k')
-    helper [nuP| SomeName mb_n |]
-      | Right n <- mbNameBoundP mb_n = Just (SomeName n)
-    helper _ = Nothing
+    helper mb_x = case mbMatch $ mb_x of
+      [nuPM| SomeName mb_n |]
+        | Right n <- mbNameBoundP mb_n -> Just (SomeName n)
+      _ -> Nothing

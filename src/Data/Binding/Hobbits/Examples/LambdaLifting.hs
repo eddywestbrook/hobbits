@@ -62,9 +62,9 @@ peelLambdas b = peelLambdasH MNil LType (mbCombine b)
 peelLambdasH ::
   lc ~ (lc0 :> b) => LC lc0 -> LType b -> Mb (c :++: lc) (Term a) ->
                      PeelRet c (AddArrows lc a)
-peelLambdasH lc0 isl [nuP| Lam b |] =
-  peelLambdasH (lc0 :>: isl) LType (mbCombine b)
-peelLambdasH lc0 ilt t = PeelRet (lc0 :>: ilt) t
+peelLambdasH lc0 ilt t = case mbMatch t of
+  [nuPM| Lam b |] -> peelLambdasH (lc0 :>: ilt) LType (mbCombine b)
+  _               -> PeelRet (lc0 :>: ilt) t
 
 
 
@@ -189,9 +189,9 @@ fvSSepLTVarsH lc c (fvs :>: fv@(MbLName n)) = case fvSSepLTVarsH lc c fvs of
 raiseAppName ::
   Append c1 c2 (c1 :++: c2) -> Mb (c1 :++: c2) (Name a) -> Either (Member c2 a) (Mb c1 (Name a))
 raiseAppName app n =
-  case fmap mbNameBoundP (mbSeparate (C.proxiesFromAppend app) n) of
-    [nuP| Left mem |] -> Left $ mbLift mem
-    [nuP| Right n |] -> Right n
+  case mbMatch $ fmap mbNameBoundP (mbSeparate (C.proxiesFromAppend app) n) of
+    [nuPM| Left mem |] -> Left $ mbLift mem
+    [nuPM| Right n |] -> Right n
 
 ------------------------------------------------------------
 -- lambda-lifting, woo hoo!
@@ -200,22 +200,23 @@ raiseAppName app n =
 type LLBodyRet b c a = Cont (Decls b) (FVSTerm c RNil a)
 
 llBody :: LC c -> Mb c (Term a) -> LLBodyRet b c a
-llBody _ [nuP| Var v |] =
-  return $ FVSTerm (MNil :>: MbLName v) $ SVar Member_Base
-llBody c [nuP| App t1 t2 |] = do
-  FVSTerm fvs1 db1 <- llBody c t1
-  FVSTerm fvs2 db2 <- llBody c t2
-  FVUnionRet names sub1 sub2 <- return $ fvUnion fvs1 fvs2
-  return $ FVSTerm names $ SApp (SWeaken sub1 db1) (SWeaken sub2 db2)
-llBody c [nuP| Lam b |] = do
-  PeelRet lc body <- return $ peelLambdas b
-  llret <- llBody (C.append c lc) body
-  FVSTerm fvs db <- return $ fvSSepLTVars lc llret
-  cont $ \k ->
-    Decls_Cons (freeParams (fvsToLC fvs) $ \names1 ->
-                boundParams lc $ \names2 ->
-                skelSubst db (C.append names1 names2))
-      $ nu $ \d -> k $ FVSTerm fvs (skelAppMultiNames (SDVar d) fvs)
+llBody c mb_x = case mbMatch mb_x of
+  [nuPM| Var v |] ->
+    return $ FVSTerm (MNil :>: MbLName v) $ SVar Member_Base
+  [nuPM| App t1 t2 |] -> do
+    FVSTerm fvs1 db1 <- llBody c t1
+    FVSTerm fvs2 db2 <- llBody c t2
+    FVUnionRet names sub1 sub2 <- return $ fvUnion fvs1 fvs2
+    return $ FVSTerm names $ SApp (SWeaken sub1 db1) (SWeaken sub2 db2)
+  [nuPM| Lam b |] -> do
+    PeelRet lc body <- return $ peelLambdas b
+    llret <- llBody (C.append c lc) body
+    FVSTerm fvs db <- return $ fvSSepLTVars lc llret
+    cont $ \k ->
+      Decls_Cons (freeParams (fvsToLC fvs) $ \names1 ->
+                  boundParams lc $ \names2 ->
+                  skelSubst db (C.append names1 names2))
+        $ nu $ \d -> k $ FVSTerm fvs (skelAppMultiNames (SDVar d) fvs)
   where
     fvsToLC :: FVList c lc -> LC lc
     fvsToLC = C.mapRAssign mbLNameToProof where

@@ -81,24 +81,28 @@ instance LiftableAny1 Proxy where
 -- with Liftable2, but this instance is better because it does not
 -- require c nor a to be liftable
 instance Liftable (Member c a) where
-    mbLift [nuP| Member_Base |] = Member_Base
-    mbLift [nuP| Member_Step m |] = Member_Step (mbLift m)
+  mbLift mb_x = case mbMatch mb_x of
+    [nuPM| Member_Base |] -> Member_Base
+    [nuPM| Member_Step m |] -> Member_Step (mbLift m)
 
 -- | Lift a list (but not its elements) out of a multi-binding
 mbList :: NuMatching a => Mb c [a] -> [Mb c a]
-mbList [nuP| [] |] = []
-mbList [nuP| x : xs |] = x : mbList xs
+mbList mb_xs = case mbMatch mb_xs of
+  [nuPM| [] |] -> []
+  [nuPM| x : xs |] -> x : mbList xs
 
 -- | Convert an 'RAssign' in a binding to an 'RAssign' of bindings
 mbRAssign :: NuMatchingAny1 f => Mb ctx (RAssign f as) ->
              RAssign (Compose (Mb ctx) f) as
-mbRAssign [nuP| MNil |] = MNil
-mbRAssign [nuP| mb_xs :>: mb_x |] = mbRAssign mb_xs :>: Compose mb_x
+mbRAssign mb_xs = case mbMatch mb_xs of
+  [nuPM| MNil |] -> MNil
+  [nuPM| mb_xs :>: mb_x |] -> mbRAssign mb_xs :>: Compose mb_x
 
 -- | Convert a 'Maybe' in a binding to a 'Maybe' of a binding
 mbMaybe :: NuMatching a => Mb ctx (Maybe a) -> Maybe (Mb ctx a)
-mbMaybe [nuP| Just mb_a |] = Just mb_a
-mbMaybe [nuP| Nothing |] = Nothing
+mbMaybe mb_x = case mbMatch mb_x of
+  [nuPM| Just mb_a |] -> Just mb_a
+  [nuPM| Nothing |] -> Nothing
 
 instance (Integral a, NuMatching a) => NuMatching (Ratio a) where
   nuMatchingProof =
@@ -108,40 +112,49 @@ instance (Integral a, Liftable a) => Liftable (Ratio a) where
     (\(n,d) -> n%d) $ mbLift $ fmap (\r -> (numerator r, denominator r)) mb_r
 
 instance Liftable a => Liftable [a] where
-    mbLift [nuP| [] |] = []
-    mbLift [nuP| x : xs |] = (mbLift x) : (mbLift xs)
+  mbLift mb_xs = case mbMatch mb_xs of
+    [nuPM| [] |] -> []
+    [nuPM| x : xs |] -> (mbLift x) : (mbLift xs)
 
 instance LiftableAny1 f => Liftable (RAssign f ctx) where
-  mbLift [nuP| MNil |] = MNil
-  mbLift [nuP| xs :>: x |] = mbLift xs :>: mbLiftAny1 x
+  mbLift mb_xs = case mbMatch mb_xs of
+    [nuPM| MNil |] -> MNil
+    [nuPM| xs :>: x |] -> mbLift xs :>: mbLiftAny1 x
 
 -- | Convert an 'RAssign' in a binding to an 'RAssign' of 'Proxy's
 mbRAssignProxies :: Mb ctx (RAssign f as) -> RAssign Proxy as
 mbRAssignProxies = mbLift . fmap (RL.map (const Proxy))
 
 instance Liftable () where
-    mbLift [nuP| () |] = ()
+  mbLift mb_x = case mbMatch mb_x of
+    [nuPM| () |] -> ()
 
 instance (Liftable a, Liftable b) => Liftable (a,b) where
-    mbLift [nuP| (x,y) |] = (mbLift x, mbLift y)
+  mbLift mb_x = case mbMatch mb_x of
+    [nuPM| (x,y) |] -> (mbLift x, mbLift y)
 
 instance Liftable Bool where
-  mbLift [nuP| True |] = True
-  mbLift [nuP| False |] = False
+  mbLift mb_x = case mbMatch mb_x of
+    [nuPM| True |] -> True
+    [nuPM| False |] -> False
 
 instance Liftable a => Liftable (Maybe a) where
-  mbLift [nuP| Nothing |] = Nothing
-  mbLift [nuP| Just mb_a |] = Just $ mbLift mb_a
+  mbLift mb_x = case mbMatch mb_x of
+    [nuPM| Nothing |] -> Nothing
+    [nuPM| Just mb_a |] -> Just $ mbLift mb_a
 
 instance (Liftable a, Liftable b) => Liftable (Either a b) where
-  mbLift [nuP| Left mb_a |] = Left $ mbLift mb_a
-  mbLift [nuP| Right mb_b |] = Right $ mbLift mb_b
+  mbLift mb_x = case mbMatch mb_x of
+    [nuPM| Left mb_a |] -> Left $ mbLift mb_a
+    [nuPM| Right mb_b |] -> Right $ mbLift mb_b
 
 instance Liftable (a :~: b) where
-  mbLift [nuP| Refl |] = Refl
+  mbLift mb_x = case mbMatch mb_x of
+    [nuPM| Refl |] -> Refl
 
 instance Liftable (Proxy (a :: k)) where
-  mbLift [nuP| Proxy |] = Proxy
+  mbLift mb_x = case mbMatch mb_x of
+    [nuPM| Proxy |] -> Proxy
 
 -- Ideally this would be in the Mb module, but that ends up producing a circular
 -- include due to needing `mbLift`
