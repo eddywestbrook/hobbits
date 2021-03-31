@@ -62,9 +62,9 @@ peelLambdas b = peelLambdasH MNil LType (mbCombine b)
 peelLambdasH ::
   lc ~ (lc0 :> b) => LC lc0 -> LType b -> Mb (c :++: lc) (Term a) ->
                      PeelRet c (AddArrows lc a)
-peelLambdasH lc0 ilt t = case mbMatch t of
-  [nuMP| Lam b |] -> peelLambdasH (lc0 :>: ilt) LType (mbCombine b)
-  _               -> PeelRet (lc0 :>: ilt) t
+peelLambdasH lc0 isl [nuP| Lam b |] =
+  peelLambdasH (lc0 :>: isl) LType (mbCombine b)
+peelLambdasH lc0 ilt t = PeelRet (lc0 :>: ilt) t
 
 
 
