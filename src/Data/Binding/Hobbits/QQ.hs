@@ -153,8 +153,8 @@ nuMKit topVar namesVar = WrapKit {_varView = varView, _asXform = asXform, _topXf
   varView = (VarE 'same_ctx_M `AppE` VarE topVar) `compose`
         (appEMulti (ConE 'MkMbPair) [VarE 'nuMatchingProof, VarE namesVar])
   asXform p = ViewP (VarE 'ensureFreshPair) (TupP [WildP, p])
-  topXform b p = if b then AsP topVar $ ConP 'MatchedMb [TupP [VarP namesVar, p]]
-                      else ConP 'MatchedMb [TupP [WildP, p]]
+  topXform b p = if b then AsP topVar $ ConP 'MatchedMb [VarP namesVar, p]
+                      else ConP 'MatchedMb [WildP, p]
 
 -- | Quasi-quoter for patterns that match over 'MatchedMb', for use with
 -- 'mbMatch'
