@@ -22,8 +22,14 @@
 --
 -- @[clP| P |]@ does the same for the 'Closed' type, and @[clNuP| P |]@ works
 -- for both simultaneously: @'Closed' ('Mb' ctx a)@.
+--
+-- One issue with 'nuP' is that GHC cannot detect whether pattern matches
+-- using it are complete. To get around this, use the similar 'nuPM' along
+-- with 'mbMatch' as follows:
+--
+-- > case mbMatch (nu Left) of [nuPM| Left x |] -> x  ==  nu id
 
-module Data.Binding.Hobbits.QQ (nuP, clP, clNuP) where
+module Data.Binding.Hobbits.QQ (nuP, mbMatch, nuPM, clP, clNuP) where
 
 import Language.Haskell.TH.Syntax as TH
 import Language.Haskell.TH.Ppr as TH
@@ -134,6 +140,28 @@ nuP = patQQ "nuP" $ \s -> do
   topVar <- newName "topMb"
   namesVar <- newName "topNames"
   parseHere s >>= wrapVars (nuKit topVar namesVar)
+
+-- | A helper function used to ensure a 'MatchedMb' and a multi-binding have
+-- the same contexts
+same_ctx_M :: MatchedMb ctx a -> Mb ctx b -> Mb ctx b
+same_ctx_M _ x = x
+
+-- | Builds a 'WrapKit' for parsing patterns that match over 'MatchedMb'.
+-- | Takes two fresh names as arguments.
+nuMKit :: TH.Name -> TH.Name -> WrapKit
+nuMKit topVar namesVar = WrapKit {_varView = varView, _asXform = asXform, _topXform = topXform} where
+  varView = (VarE 'same_ctx_M `AppE` VarE topVar) `compose`
+        (appEMulti (ConE 'MkMbPair) [VarE 'nuMatchingProof, VarE namesVar])
+  asXform p = ViewP (VarE 'ensureFreshPair) (TupP [WildP, p])
+  topXform b p = if b then AsP topVar $ ConP 'MatchedMb [TupP [VarP namesVar, p]]
+                      else ConP 'MatchedMb [TupP [WildP, p]]
+
+-- | Quasi-quoter for patterns that match over 'MatchedMb', for use with
+-- 'mbMatch'
+nuPM = patQQ "nuPM" $ \s -> do
+  topVar <- newName "topMb"
+  namesVar <- newName "topNames"
+  parseHere s >>= wrapVars (nuMKit topVar namesVar)
 
 -- | Builds a 'WrapKit' for parsing patterns that match over 'Closed'
 clKit = WrapKit {_varView = ConE 'Closed, _asXform = asXform, _topXform = const asXform}

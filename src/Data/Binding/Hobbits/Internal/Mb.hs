@@ -95,3 +95,12 @@ ensureFreshPair (MkMbPair _ ns body) = (ns, body)
 ensureFreshPair (MkMbFun proxies f) =
     let ns = mapRAssign (MkName . fresh_name) proxies in
     (ns, f ns)
+
+
+-- | A wrapper for the "fresh pair" representation of a multi-binding, for use
+-- in pattern matching (see 'mbMatch' and 'nuPM')
+newtype MatchedMb ctx a = MatchedMb (RAssign Name ctx, a)
+
+-- | Prepare a muli-binding for a pattern match, for use with 'nuPM'
+mbMatch :: Mb ctx a -> MatchedMb ctx a
+mbMatch = MatchedMb . ensureFreshPair
