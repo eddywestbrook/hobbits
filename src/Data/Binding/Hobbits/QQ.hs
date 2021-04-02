@@ -152,7 +152,7 @@ nuMKit :: TH.Name -> TH.Name -> WrapKit
 nuMKit topVar namesVar = WrapKit {_varView = varView, _asXform = asXform, _topXform = topXform} where
   varView = (VarE 'same_ctx_M `AppE` VarE topVar) `compose`
         (appEMulti (ConE 'MkMbPair) [VarE 'nuMatchingProof, VarE namesVar])
-  asXform p = ViewP (VarE 'ensureFreshPair) (TupP [WildP, p])
+  asXform p = ViewP (VarE 'mbMatch) (ConP 'MatchedMb [WildP, p])
   topXform b p = if b then AsP topVar $ ConP 'MatchedMb [VarP namesVar, p]
                       else ConP 'MatchedMb [WildP, p]
 

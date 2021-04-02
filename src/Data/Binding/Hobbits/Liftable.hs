@@ -126,10 +126,10 @@ mbRAssignProxies :: Mb ctx (RAssign f as) -> RAssign Proxy as
 mbRAssignProxies = mbLift . fmap (RL.map (const Proxy))
 
 instance Liftable () where
-  mbLift [nuP| () |] = ()
+  mbLift (mbMatch -> [nuMP| () |]) = ()
 
 instance (Liftable a, Liftable b) => Liftable (a,b) where
-  mbLift [nuP| (x,y) |] = (mbLift x, mbLift y)
+  mbLift (mbMatch -> [nuMP| (x,y) |]) = (mbLift x, mbLift y)
 
 instance Liftable Bool where
   mbLift mb_x = case mbMatch mb_x of
@@ -147,10 +147,10 @@ instance (Liftable a, Liftable b) => Liftable (Either a b) where
     [nuMP| Right mb_b |] -> Right $ mbLift mb_b
 
 instance Liftable (a :~: b) where
-  mbLift [nuP| Refl |] = Refl
+  mbLift (mbMatch -> [nuMP| Refl |]) = Refl
 
 instance Liftable (Proxy (a :: k)) where
-  mbLift [nuP| Proxy |] = Proxy
+  mbLift (mbMatch -> [nuMP| Proxy |]) = Proxy
 
 -- Ideally this would be in the Mb module, but that ends up producing a circular
 -- include due to needing `mbLift`
