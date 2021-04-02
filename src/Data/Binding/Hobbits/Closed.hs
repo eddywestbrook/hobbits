@@ -60,10 +60,6 @@ clMbApply (Closed f) (Closed a) = Closed (mbApply f a)
 clApplyCl :: Closed (Closed a -> b) -> Closed a -> Closed b
 clApplyCl (Closed f) a = Closed (f a)
 
--- | FIXME: this should not be possible!!
-closeBug :: a -> Closed a
-closeBug = $([| \x -> $(mkClosed [| x |]) |])
-
 -- | Mark an object as closed without actually traversing it. This is unsafe if
 -- the object does in fact contain any names.
 unsafeClose :: a -> Closed a
