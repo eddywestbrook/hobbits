@@ -46,10 +46,12 @@ import qualified Control.Monad.State.Strict as Strict
 class Monad m => MonadBind m where
   mbM :: NuMatching a => Mb ctx (m a) -> m (Mb ctx a)
 
+{-
 -- | Bind a name inside a computation and return the name-binding whose body was
 -- returned by the computation
 nuM :: (MonadBind m, NuMatching b) => (Name a -> m b) -> m (Binding a b)
 nuM = mbM . nu
+-}
 
 instance MonadBind Identity where
   mbM = Identity . fmap runIdentity

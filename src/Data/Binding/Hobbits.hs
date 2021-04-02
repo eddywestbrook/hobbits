@@ -45,7 +45,6 @@ module Data.Binding.Hobbits (
   -- class, which allows pattern-matching on (G)ADTs in the bodies of
   -- multi-bindings
   module Data.Binding.Hobbits.NuMatching,
-  module Data.Binding.Hobbits.NuMatchingInstances
 
                             ) where
 
@@ -57,4 +56,4 @@ import Data.Binding.Hobbits.Closed
 import Data.Binding.Hobbits.QQ
 import Data.Binding.Hobbits.Liftable
 import Data.Binding.Hobbits.NuMatching
-import Data.Binding.Hobbits.NuMatchingInstances()
+import Data.Binding.Hobbits.NuMatchingInstances ()

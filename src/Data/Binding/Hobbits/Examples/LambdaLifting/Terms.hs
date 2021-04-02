@@ -27,8 +27,7 @@ data L a
 data D a
 
 -- to make a function for RAssign (for pretty)
-newtype StringF x = StringF String
-unStringF (StringF str) = str
+newtype StringF x = StringF { unStringF :: String }
 
 
 ------------------------------------------------------------
@@ -57,7 +56,7 @@ tpretty t = pretty' (emptyMb t) C.empty 0
           [nuMP| Var b |] ->
             case mbNameBoundP b of
               Left pf  -> unStringF (C.get pf varnames)
-              Right n -> "(free-var " ++ show n ++ ")"
+              Right n' -> "(free-var " ++ show n' ++ ")"
           [nuMP| Lam b |] ->
             let x = "x" ++ show n in
             "(\\" ++ x ++ "." ++ pretty' (mbCombine b) (varnames :>: (StringF x)) (n+1) ++ ")"
@@ -109,8 +108,9 @@ mpretty mb_x varnames = case mbMatch mb_x of
     "(" ++ mpretty b1 varnames
         ++ " " ++ mpretty b2 varnames ++ ")"
 
+mprettyName :: Either (Member c a) (Name a) -> RAssign StringF c -> String
 mprettyName (Left pf) varnames = unStringF (C.get pf varnames)
-mprettyName (Right n) varnames = "(free-var " ++ (show n) ++ ")"
+mprettyName (Right n) _ = "(free-var " ++ (show n) ++ ")"
         
 
 -- pretty print decls

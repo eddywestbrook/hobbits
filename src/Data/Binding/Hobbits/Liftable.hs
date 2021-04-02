@@ -25,7 +25,7 @@ import Data.Binding.Hobbits.Internal.Mb
 import Data.Binding.Hobbits.QQ
 import Data.Binding.Hobbits.Closed
 import Data.Binding.Hobbits.NuMatching
-import Data.Binding.Hobbits.NuMatchingInstances
+import Data.Binding.Hobbits.NuMatchingInstances ()
 
 import Data.Ratio
 import Data.Proxy
@@ -96,7 +96,7 @@ mbRAssign :: NuMatchingAny1 f => Mb ctx (RAssign f as) ->
              RAssign (Compose (Mb ctx) f) as
 mbRAssign mb_xs = case mbMatch mb_xs of
   [nuMP| MNil |] -> MNil
-  [nuMP| mb_xs :>: mb_x |] -> mbRAssign mb_xs :>: Compose mb_x
+  [nuMP| mb_xs' :>: mb_x |] -> mbRAssign mb_xs' :>: Compose mb_x
 
 -- | Convert a 'Maybe' in a binding to a 'Maybe' of a binding
 mbMaybe :: NuMatching a => Mb ctx (Maybe a) -> Maybe (Mb ctx a)
@@ -104,9 +104,6 @@ mbMaybe mb_x = case mbMatch mb_x of
   [nuMP| Just mb_a |] -> Just mb_a
   [nuMP| Nothing |] -> Nothing
 
-instance (Integral a, NuMatching a) => NuMatching (Ratio a) where
-  nuMatchingProof =
-    isoMbTypeRepr (\r -> (numerator r, denominator r)) (\(n,d) -> n%d)
 instance (Integral a, Liftable a) => Liftable (Ratio a) where
   mbLift mb_r =
     (\(n,d) -> n%d) $ mbLift $ fmap (\r -> (numerator r, denominator r)) mb_r

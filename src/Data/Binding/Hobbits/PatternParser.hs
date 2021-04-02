@@ -23,6 +23,7 @@ import qualified Language.Haskell.Meta.Syntax.Translate as Translate
 
 import qualified Language.Haskell.Exts.Extension as Exts
 
+parsePatternExtensions :: [Exts.Extension]
 parsePatternExtensions =
   map Exts.EnableExtension $ Exts.ViewPatterns : Sloppy.myDefaultExtensions
 

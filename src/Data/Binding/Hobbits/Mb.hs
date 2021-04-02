@@ -1,6 +1,8 @@
 {-# LANGUAGE GADTs, TypeOperators, FlexibleInstances, ViewPatterns, DataKinds #-}
 {-# LANGUAGE RankNTypes, PolyKinds #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- |
 -- Module      : Data.Binding.Hobbits.Mb
 -- Copyright   : (c) 2011 Edwin Westbrook, Nicolas Frisby, and Paul Brauner
@@ -32,7 +34,6 @@ module Data.Binding.Hobbits.Mb (
   nuMultiWithElim, nuWithElim, nuMultiWithElim1, nuWithElim1
 ) where
 
-import Control.Applicative
 import Control.Monad.Identity
 
 import Data.Type.Equality ((:~:)(..))
@@ -77,6 +78,8 @@ nuMulti :: RAssign f ctx -> (RAssign Name ctx -> b) -> Mb ctx b
 nuMulti proxies f = MkMbFun (mapRAssign (const Proxy) proxies) f
 
 -- | @nus = nuMulti@
+nus :: forall k (f :: k -> *) (ctx :: RList k) b.
+       RAssign f ctx -> (RAssign Name ctx -> b) -> Mb ctx b
 nus x = nuMulti x
 
 -- | Extend the context of a name-binding by adding a single type
@@ -107,14 +110,14 @@ mbNameBoundP :: forall k1 k2 (a :: k1) (ctx :: RList k2).
                 Mb ctx (Name a) -> Either (Member ctx a) (Name a)
 mbNameBoundP (ensureFreshPair -> (names, n)) = helper names n where
     helper :: RAssign Name c -> Name a -> Either (Member c a) (Name a)
-    helper MNil n = Right n
-    helper (names :>: (MkName i)) (MkName j)
+    helper MNil n' = Right n'
+    helper (_ :>: (MkName i)) (MkName j)
       | i == j =
         unsafeCoerce $ Left Member_Base
-    helper (names :>: _) n =
-      case helper names n of
+    helper (names' :>: _) n' =
+      case helper names' n' of
         Left memb -> Left (Member_Step memb)
-        Right n -> Right n
+        Right n'' -> Right n''
 -- old implementation with lists
 {-
 case elemIndex n names of
@@ -164,9 +167,9 @@ freshFunctionProxies proxies1 f =
 
 -- README: inner-most bindings come FIRST
 -- | Combines a binding inside another binding into a single binding.
-mbCombine :: forall k (c1 :: RList k) (c2 :: RList k) a b.
+mbCombine :: forall k (c1 :: RList k) (c2 :: RList k) b.
              Mb c1 (Mb c2 b) -> Mb (c1 :++: c2) b
-mbCombine (MkMbPair tRepr1 l1 (MkMbPair tRepr2 l2 b)) =
+mbCombine (MkMbPair _tRepr1 l1 (MkMbPair tRepr2 l2 b)) =
   MkMbPair tRepr2 (append l1 l2) b
 mbCombine (ensureFreshFun -> (proxies1, f1)) =
     -- README: we pass in Names with integer value 0 here in order to
@@ -321,7 +324,7 @@ nuWithElim f args =
 -}
 nuMultiWithElim1 :: (RAssign Name ctx -> arg -> b) -> Mb ctx arg -> Mb ctx b
 nuMultiWithElim1 f arg =
-    nuMultiWithElim (\names (MNil :>: Identity arg) -> f names arg)
+    nuMultiWithElim (\names (MNil :>: Identity arg') -> f names arg')
     (MNil :>: arg)
 
 
@@ -331,4 +334,4 @@ nuMultiWithElim1 f arg =
 -}
 nuWithElim1 :: (Name a -> arg -> b) -> Binding a arg -> Binding a b
 nuWithElim1 f arg =
-  nuWithElim (\n (MNil :>: Identity arg) -> f n arg) (MNil :>: arg)
+  nuWithElim (\n (MNil :>: Identity arg') -> f n arg') (MNil :>: arg)

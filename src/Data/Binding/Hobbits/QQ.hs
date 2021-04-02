@@ -136,6 +136,7 @@ nuKit topVar namesVar = WrapKit {_varView = varView, _asXform = asXform, _topXfo
   topXform b p = if b then AsP topVar $ ViewP (VarE 'ensureFreshPair) (TupP [VarP namesVar, p]) else asXform p
 
 -- | Quasi-quoter for patterns that match over 'Mb'
+nuP :: QuasiQuoter
 nuP = patQQ "nuP" $ \s -> do
   topVar <- newName "topMb"
   namesVar <- newName "topNames"
@@ -158,19 +159,23 @@ nuMKit topVar namesVar = WrapKit {_varView = varView, _asXform = asXform, _topXf
 
 -- | Quasi-quoter for patterns that match over 'MatchedMb', for use with
 -- 'mbMatch'
+nuMP :: QuasiQuoter
 nuMP = patQQ "nuMP" $ \s -> do
   topVar <- newName "topMb"
   namesVar <- newName "topNames"
   parseHere s >>= wrapVars (nuMKit topVar namesVar)
 
 -- | Builds a 'WrapKit' for parsing patterns that match over 'Closed'
+clKit :: WrapKit
 clKit = WrapKit {_varView = ConE 'Closed, _asXform = asXform, _topXform = const asXform}
   where asXform p = ConP 'Closed [p]
 
 -- | Quasi-quoter for patterns that match over 'Closed', built using 'clKit'
+clP :: QuasiQuoter
 clP = patQQ "clP" $ (>>= wrapVars clKit) . parseHere
 
 -- | Quasi-quoter for patterns that match over @'Closed' ('Mb' ctx a)@
+clNuP :: QuasiQuoter
 clNuP = patQQ "clNuP" $ \s -> do
   topVar <- newName "topMb"
   namesVar <- newName "topNames"

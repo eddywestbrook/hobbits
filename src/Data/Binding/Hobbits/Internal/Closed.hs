@@ -53,21 +53,21 @@ reifyNameType n =
 --   3) also of type 'Closed'.
 mkClosed :: Q Exp -> Q Exp
 mkClosed e = AppE (ConE 'Closed) `fmap` e >>= SYB.everywhereM (SYB.mkM w) where
-  w e@(VarE n@(TH.Name _ flav)) = case flav of
-    TH.NameG {} -> return e -- bound globally
-    TH.NameU {} -> return e -- bound locally within this quotation
-    TH.NameL {} -> closed n >> return e -- bound locally outside this quotation
+  w e'@(VarE n@(TH.Name _ flav)) = case flav of
+    TH.NameG {} -> return e' -- bound globally
+    TH.NameU {} -> return e' -- bound locally within this quotation
+    TH.NameL {} -> closed n >> return e' -- bound locally outside this quotation
     _ -> fail $ "`mkClosed' does not allow dynamically bound names: `"
       ++ show n ++ "'."
-  w e = return e
+  w e' = return e'
 
   closed n = do
     ty <- reifyNameType n
-    TH.expandSyns ty >>= w ty
+    TH.expandSyns ty >>= w' ty
       where
-        w _ (AppT (ConT m) _) | m == ''Closed = return ()
-        w top_ty (ForallT _ _ ty') = w top_ty ty'
-        w top_ty _ =
+        w' _ (AppT (ConT m) _) | m == ''Closed = return ()
+        w' top_ty (ForallT _ _ ty') = w' top_ty ty'
+        w' top_ty _ =
           fail $ "`mkClosed` requires non-global variables to have type `Closed'.\n\t`"
           ++ show (TH.ppr n) ++ "' does not. It's type is:\n\t `"
           ++ show (TH.ppr top_ty) ++ "'."

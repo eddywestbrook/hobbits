@@ -27,10 +27,9 @@ module Data.Type.RList (
   , members, TypeCtx(..), appendAssoc, appendRNilConsEq, prependRNilEq, Eq1(..)
   ) where
 
-import Prelude hiding (map, foldr, head, tail)
+import Prelude hiding (map, foldr, head, tail, any)
 import Data.Kind
 import Data.Type.Equality
-import Data.Proxy (Proxy(..))
 import Data.Functor.Constant
 import Data.Typeable
 
@@ -73,7 +72,7 @@ instance Show (Member r a) where
   showsPrec p = showsPrecMember (p > 10) where
     showsPrecMember :: Bool -> Member ctx a -> ShowS
     showsPrecMember _ Member_Base = showString "Member_Base"
-    showsPrecMember p (Member_Step prf) = showParen p $
+    showsPrecMember p' (Member_Step prf) = showParen p' $
       showString "Member_Step" . showsPrec 10 prf
 
 instance TestEquality (Member ctx) where

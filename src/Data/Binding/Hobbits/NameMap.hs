@@ -45,7 +45,7 @@ import Unsafe.Coerce
 import Data.Binding.Hobbits.Internal.Name
 import Data.Binding.Hobbits.Mb
 import Data.Binding.Hobbits.NuMatching
-import Data.Binding.Hobbits.NuMatchingInstances
+import Data.Binding.Hobbits.NuMatchingInstances ()
 import Data.Binding.Hobbits.QQ
 
 -- | An element of a 'NameMap', where the name type @a@ is existentially
@@ -60,7 +60,7 @@ coerceNMElem (NMElem x) = unsafeCoerce x
 
 -- | A heterogeneous map from 'Name's of arbitrary type @a@ to elements of @f a@
 newtype NameMap (f :: k -> *) =
-  NameMap { unNameMap :: IntMap (NMElem f) }
+  NameMap (IntMap (NMElem f))
 
 -- | Internal-only helper function for mapping a unary function on 'IntMap's to
 -- a 'NameMap'
@@ -167,8 +167,8 @@ foldr f b (NameMap m) =
 -- | Perform a left fold across all values in a 'NameMap'
 foldl :: (forall b. a -> f b -> a) -> a -> NameMap f -> a
 foldl f a (NameMap m) =
-  IntMap.foldl (\a e -> case e of
-                   NMElem x -> f a x) a m
+  IntMap.foldl (\a' e -> case e of
+                   NMElem x -> f a' x) a m
 
 -- | Return all 'Name's in a 'NameMap' with their associated values
 assocs :: NameMap f -> [NameAndElem f]
@@ -184,7 +184,7 @@ $(mkNuMatching [t| forall f. NuMatchingAny1 f => NameAndElem f |])
 -- 'NameMap' contains those names and associated values where the names were not
 -- bound by the name-binding and the partial lifting function was able to lift
 -- their associated values.
-liftNameMap :: forall ctx f a. NuMatchingAny1 f =>
+liftNameMap :: forall ctx f. NuMatchingAny1 f =>
                (forall a. Mb ctx (f a) -> Maybe (f a)) ->
                Mb ctx (NameMap f) -> NameMap f
 liftNameMap lifter = helper . fmap assocs where

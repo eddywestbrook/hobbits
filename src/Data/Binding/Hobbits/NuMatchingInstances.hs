@@ -8,6 +8,8 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE QuasiQuotes #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- |
 -- Module      : Data.Binding.Hobbits.NuMatchingInstances
 -- Copyright   : (c) 2020 Edwin Westbrook
@@ -27,11 +29,10 @@ import Data.Proxy
 import Data.Type.Equality
 import Data.Functor.Constant
 import Data.Functor.Product
+import Data.Ratio
 
 import Data.Type.RList
-import Data.Binding.Hobbits.Mb
-import Data.Binding.Hobbits.NuMatching (NuMatching(..), NuMatchingAny1(..), mkNuMatching)
-import Data.Binding.Hobbits.QQ (nuP)
+import Data.Binding.Hobbits.NuMatching
 
 $(mkNuMatching [t| forall a. NuMatching a => Maybe a |])
 $(mkNuMatching [t| forall a b. (NuMatching a, NuMatching b) => Either a b |])
@@ -46,3 +47,7 @@ $(mkNuMatching [t| forall f g a. (NuMatchingAny1 f,
 instance (NuMatchingAny1 f,
           NuMatchingAny1 g) => NuMatchingAny1 (Product f g) where
   nuMatchingAny1Proof = nuMatchingProof
+
+instance (Integral a, NuMatching a) => NuMatching (Ratio a) where
+  nuMatchingProof =
+    isoMbTypeRepr (\r -> (numerator r, denominator r)) (\(n,d) -> n%d)

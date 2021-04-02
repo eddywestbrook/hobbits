@@ -33,7 +33,7 @@ Library
     , containers
     , vector
 
-  GHC-Options: -fwarn-incomplete-patterns -fwarn-unused-imports
+  GHC-Options: -Wall
 
   hs-source-dirs: src
 

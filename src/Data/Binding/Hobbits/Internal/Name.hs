@@ -156,7 +156,7 @@ counter = unsafePerformIO (newIORef 0)
 -- what order fresh names are created
 fresh_name :: a -> Int
 fresh_name a = unsafePerformIO $ do 
-    dummyRef <- newIORef a
+    _dummyRef <- newIORef a
     x <- readIORef counter
     writeIORef counter (x+1)
     return x

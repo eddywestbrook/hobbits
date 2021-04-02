@@ -146,8 +146,8 @@ skelAppMultiNames db args = skelAppMultiNamesH db args (C.members args) where
     STerm fvs a
   skelAppMultiNamesH fvs MNil _ = fvs
   -- flagged as non-exhaustive, in spite of type
-  skelAppMultiNamesH fvs (args :>: MbLName _) (inCs :>: inC) =
-    SApp (skelAppMultiNamesH fvs args inCs) (SVar inC)
+  skelAppMultiNamesH fvs (args' :>: MbLName _) (inCs :>: inC) =
+    SApp (skelAppMultiNamesH fvs args' inCs) (SVar inC)
 
 ------------------------------------------------------------
 -- STerms combined with their free variables
@@ -179,8 +179,8 @@ fvSSepLTVarsH lc c (fvs :>: fv@(MbLName n)) = case fvSSepLTVarsH lc c fvs of
     Left idx ->
       SepRet m (\xs ->
                  f xs :>: C.get (C.weakenMemberL (proxyOfRAssign m) idx) xs)
-    Right n ->
-      SepRet (m :>: MbLName n)
+    Right n' ->
+      SepRet (m :>: MbLName n')
       (\xs -> case C.split c' lc xs of
           (fvs' :>: fv', lcs) ->
             f (C.append fvs' lcs) :>: fv')
@@ -191,7 +191,7 @@ raiseAppName ::
 raiseAppName app n =
   case mbMatch $ fmap mbNameBoundP (mbSeparate (C.proxiesFromAppend app) n) of
     [nuMP| Left mem |] -> Left $ mbLift mem
-    [nuMP| Right n |] -> Right n
+    [nuMP| Right n' |] -> Right n'
 
 ------------------------------------------------------------
 -- lambda-lifting, woo hoo!

@@ -43,7 +43,7 @@ import Data.Kind
 import qualified Data.Foldable as Foldable
 import Data.Type.Equality
 
-import Data.Type.RList (RList, RNil, (:>), RAssign(..))
+import Data.Type.RList (RList, RAssign(..))
 import qualified Data.Type.RList as RL
 import Data.Binding.Hobbits.Internal.Name
 import Data.Binding.Hobbits.Mb
@@ -52,7 +52,7 @@ import Data.Binding.Hobbits.QQ
 import Data.Binding.Hobbits.Liftable
 
 -- | A set of 'Name's whose types all have kind @k@
-newtype NameSet k = NameSet { unNameSet :: IntSet }
+newtype NameSet k = NameSet IntSet
 
 -- | A 'Name' of some unknown type of kind @k@
 data SomeName k = forall (a :: k). SomeName (Name a)
@@ -160,7 +160,7 @@ foldr f r (NameSet s) = IntSet.foldr (f . MkName) r s
 
 -- | Perform a left fold of a function across all elements of a 'NameSet'
 foldl :: (forall (a::k). r -> Name a -> r) -> r -> NameSet k -> r
-foldl f r (NameSet s) = IntSet.foldl (\r -> f r . MkName) r s
+foldl f r (NameSet s) = IntSet.foldl (\r' -> f r' . MkName) r s
 
 -- | Lift a 'NameSet' out of a name-binding by lifting all names not bound by
 -- the name-binding and then forming a 'NameSet' from those lifted names

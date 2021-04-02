@@ -38,10 +38,11 @@ module Data.Binding.Hobbits.NuMatching (
   NuMatchingAny1(..)
 ) where
 
+import Prelude hiding (exp)
 import Data.Vector (Vector)
 import qualified Data.Vector as Vector
 --import Data.Typeable
-import Language.Haskell.TH hiding (Name, Type(..))
+import Language.Haskell.TH hiding (Name, Type(..), cxt, clause)
 import qualified Language.Haskell.TH as TH
 import Control.Monad.State
 import Numeric.Natural
@@ -103,7 +104,7 @@ instance NuMatching (Name a) where
 
 instance NuMatching (Closed a) where
     -- no need to map free variables in a Closed object
-    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\refresher -> id))
+    nuMatchingProof = MbTypeReprData (MkMbTypeReprData $ (\_ -> id))
 
 instance (NuMatching a, NuMatching b) => NuMatching (a -> b) where
     nuMatchingProof = MbTypeReprFun nuMatchingProof nuMatchingProof
@@ -221,11 +222,11 @@ instance {-# OVERLAPPABLE #-} (NuMatching1 f, NuMatchingList ctx) =>
                   RAssign NuMatchingObj args -> NameRefresher ->
                   RAssign f args -> RAssign f args
         helper MNil r MNil = MNil
-        helper (proofs :>: NuMatchingObj ()) r (elems :>: (elem :: f a)) =
+        helper (proofs :>: NuMatchingObj ()) r (elms :>: (elm :: f a)) =
             case nuMatchingProof1 :: NuMatchingObj (f a) of
               NuMatchingObj () ->
-                  (helper proofs r elems) :>:
-                  mapNames r elem
+                  (helper proofs r elms) :>:
+                  mapNames r elm
 -}
 
 -- | Typeclass for lifting the 'NuMatching' constraint to functors on arbitrary
@@ -252,21 +253,22 @@ instance {-# OVERLAPPABLE #-} NuMatchingAny1 f => NuMatching (RAssign f ctx) whe
     nuMatchingProof = MbTypeReprData $ MkMbTypeReprData helper where
         helper :: NuMatchingAny1 f => NameRefresher -> RAssign f args ->
                   RAssign f args
-        helper r MNil = MNil
-        helper r (elems :>: elem) = helper r elems :>: mapNames r elem
+        helper _ MNil = MNil
+        helper r (elms :>: elm) = helper r elms :>: mapNames r elm
 
 instance NuMatchingAny1 f => NuMatchingAny1 (RAssign f) where
   nuMatchingAny1Proof = nuMatchingProof
 
 -- now we define some TH to create NuMatchings
 
+natsFrom :: Integer -> [Integer]
 natsFrom i = i : natsFrom (i+1)
 
 fst3 :: (a,b,c) -> a
 fst3 (x,_,_) = x
 
-snd3 :: (a,b,c) -> b
-snd3 (_,y,_) = y
+-- snd3 :: (a,b,c) -> b
+-- snd3 (_,y,_) = y
 
 thd3 :: (a,b,c) -> c
 thd3 (_,_,z) = z
@@ -274,6 +276,7 @@ thd3 (_,_,z) = z
 
 type Names = (TH.Name, TH.Name, TH.Name)
 
+mapNamesType :: TypeQ -> TypeQ
 mapNamesType a = [t| NameRefresher -> $a -> $a |]
 
 {-|
@@ -363,7 +366,7 @@ mkNuMatching tQ =
       getMbTypeReprInfo ctx tyvars topT (TH.ForallT _ ctx' t) =
           getMbTypeReprInfo (ctx ++ ctx') tyvars topT t
 
-      getMbTypeReprInfo ctx tyvars topT t = getMbTypeReprInfoFail topT ""
+      getMbTypeReprInfo _ _ topT _ = getMbTypeReprInfoFail topT ""
 
       -- get the name from a data type
       getTCtor t = getTCtorHelper t t []
@@ -426,7 +429,7 @@ mkNuMatching tQ =
                          ([(TH.Name,TH.Type,a)] -> Pat) ->
                          ([(Exp,TH.Type,a)] -> Exp) ->
                          Q Clause
-      getClauseHelper names@(tName, fName, refrName) cTypes cData pFun eFun =
+      getClauseHelper names@(_, _, refrName) cTypes cData pFun eFun =
           do varNames <- mapM (newName . ("x" ++) . show . fst)
                          $ zip (natsFrom 0) cTypes
              let varsTypesData = zip3 varNames cTypes cData
@@ -443,12 +446,13 @@ mkNuMatching tQ =
               (foldl AppE (VarE fName)
                          [(VarE refrName), (VarE varName)],
                t, cData)
-      mkExpTypeData (tName, fName, refrName) (varName, t, cData) =
+      mkExpTypeData (_, _, refrName) (varName, t, cData) =
           -- the type of the arg is not the same as the (G)ADT; call mapNames
           (foldl AppE (VarE 'mapNames)
                      [(VarE refrName), (VarE varName)],
            t, cData)
 
+{-
 -- FIXME: old stuff below
 
 type CxtStateQ a = StateT Cxt Q a
@@ -582,3 +586,4 @@ mkMkMbTypeReprDataOld conNameQ =
 
       isMbTypeRepr 
        -}
+-}

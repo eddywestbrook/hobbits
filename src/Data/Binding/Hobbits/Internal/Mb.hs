@@ -20,8 +20,6 @@
 module Data.Binding.Hobbits.Internal.Mb where
 
 import Data.Typeable
-import Data.Proxy
-import Data.Type.Equality
 import Data.Type.RList hiding (map)
 
 import Data.Binding.Hobbits.Internal.Name
@@ -61,7 +59,7 @@ data MbTypeRepr a where
     MbTypeReprData :: MbTypeReprData a -> MbTypeRepr a
 
 data MbTypeReprData a =
-    MkMbTypeReprData (forall ctx. NameRefresher -> a -> a)
+    MkMbTypeReprData (NameRefresher -> a -> a)
 
 {-|
   The call @mapNamesPf data ns ns' a@ replaces each occurrence of a
