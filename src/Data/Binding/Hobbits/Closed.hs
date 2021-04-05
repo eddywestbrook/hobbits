@@ -20,7 +20,9 @@ module Data.Binding.Hobbits.Closed (
   -- * Operators involving 'Closed'
   unClosed, mkClosed, noClosedNames, clApply, clMbApply, clApplyCl, unsafeClose,
   -- * Typeclass for inherently closed types
-  Closable(..)
+  Closable(..),
+  -- * Typeclass for closable functors
+  IsClosable(..), ClosableAny1(..), toClosedAny1
 ) where
 
 import Data.Proxy
