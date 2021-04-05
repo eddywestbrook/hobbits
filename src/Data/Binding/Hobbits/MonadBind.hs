@@ -26,7 +26,10 @@
 -- >   == 'mbM' ('nuMulti' $ \ns -> m) >>= \mb_x ->
 -- >      'mbM' (('nuMulti' $ \ns x -> f x) `'mbApply'` mb_x)
 
-module Data.Binding.Hobbits.MonadBind (MonadBind(..), MonadStrongBind(..)) where
+module Data.Binding.Hobbits.MonadBind (
+  MonadBind(..), nuM, mbMatchM,
+  MonadStrongBind(..)
+  ) where
 
 import Data.Binding.Hobbits.Closed
 import Data.Binding.Hobbits.Liftable (Liftable(..), mbMaybe)
@@ -46,12 +49,15 @@ import qualified Control.Monad.State.Strict as Strict
 class Monad m => MonadBind m where
   mbM :: NuMatching a => Mb ctx (m a) -> m (Mb ctx a)
 
-{-
 -- | Bind a name inside a computation and return the name-binding whose body was
 -- returned by the computation
 nuM :: (MonadBind m, NuMatching b) => (Name a -> m b) -> m (Binding a b)
 nuM = mbM . nu
--}
+
+-- | Prepare a muli-binding inside a computation for a pattern match, for use
+-- with 'nuMP'
+mbMatchM :: (MonadBind m, NuMatching a) => Mb ctx (m a) -> m (MatchedMb ctx a)
+mbMatchM = fmap mbMatch . mbM
 
 instance MonadBind Identity where
   mbM = Identity . fmap runIdentity
