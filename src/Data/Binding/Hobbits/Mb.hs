@@ -29,7 +29,7 @@ module Data.Binding.Hobbits.Mb (
   cmpName, hcmpName, mbNameBoundP, mbCmpName,
   -- * Operations on multi-bindings
   elimEmptyMb, mbCombine, mbSeparate, mbToProxy, mbSwap, mbPure, mbApply,
-  mbMap2, mbMap3, mbMap4,
+  mbMap2, mbMap3, mbMap4, mbMap5,
   -- * Eliminators for multi-bindings
   nuMultiWithElim, nuWithElim, nuMultiWithElim1, nuWithElim1
 ) where
@@ -247,6 +247,11 @@ mbMap3 f mb1 mb2 mb3 = mbMap2 f mb1 mb2 `mbApply` mb3
 mbMap4 :: (a -> b -> c -> d -> e) ->
           Mb ctx a -> Mb ctx b -> Mb ctx c -> Mb ctx d -> Mb ctx e
 mbMap4 f mb1 mb2 mb3 mb4 = mbMap3 f mb1 mb2 mb3 `mbApply` mb4
+
+-- | Lift a quinary function function to `Mb`s
+mbMap5 :: (a -> b -> c -> d -> e -> f) ->
+          Mb ctx a -> Mb ctx b -> Mb ctx c -> Mb ctx d -> Mb ctx e -> Mb ctx f
+mbMap5 f mb1 mb2 mb3 mb4 mb5 = mbMap4 f mb1 mb2 mb3 mb4 `mbApply` mb5
 
 
 -------------------------------------------------------------------------------
