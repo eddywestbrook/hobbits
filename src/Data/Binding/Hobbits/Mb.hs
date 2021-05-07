@@ -74,21 +74,21 @@ nu f = MkMbFun (MNil :>: Proxy) (\(MNil :>: n) -> f n)
   \"phantom\" argument, used to reify the list of types @ctx@ at the
   term level; thus it is unimportant what the type function @f@ is.
 -}
-nuMulti :: RAssign f ctx -> (RAssign Name ctx -> b) -> Mb ctx b
-nuMulti proxies f = MkMbFun (mapRAssign (const Proxy) proxies) f
+nuMulti :: RAssign Proxy ctx -> (RAssign Name ctx -> b) -> Mb ctx b
+nuMulti = MkMbFun
 
 -- | @nus = nuMulti@
-nus :: forall k (f :: k -> *) (ctx :: RList k) b.
-       RAssign f ctx -> (RAssign Name ctx -> b) -> Mb ctx b
-nus x = nuMulti x
+nus :: forall k (ctx :: RList k) b.
+       RAssign Proxy ctx -> (RAssign Name ctx -> b) -> Mb ctx b
+nus = nuMulti
 
 -- | Extend the context of a name-binding by adding a single type
 extMb :: Mb ctx a -> Mb (ctx :> tp) a
-extMb = mbCombine . fmap (nu . const)
+extMb = mbCombine typeCtxProxies . fmap (nu . const)
 
 -- | Extend the context of a name-binding with multiple types
-extMbMulti :: RAssign f ctx2 -> Mb ctx1 a -> Mb (ctx1 :++: ctx2) a
-extMbMulti ns mb = mbCombine $ fmap (nuMulti ns . const) mb
+extMbMulti :: RAssign Proxy ctx2 -> Mb ctx1 a -> Mb (ctx1 :++: ctx2) a
+extMbMulti ns mb = mbCombine ns (fmap (nuMulti ns . const) mb)
 
 
 -------------------------------------------------------------------------------
@@ -155,35 +155,27 @@ emptyMb body = MkMbFun MNil (\_ -> body)
 elimEmptyMb :: Mb RNil a -> a
 elimEmptyMb (ensureFreshPair -> (_, body)) = body
 
-
--- Extract the proxy objects from an Mb inside of a fresh function
-freshFunctionProxies :: RAssign Proxy ctx1 -> (RAssign Name ctx1 -> Mb ctx2 a) ->
-                        RAssign Proxy ctx2
-freshFunctionProxies proxies1 f =
-    case f (mapRAssign (const $ MkName 0) proxies1) of
-      MkMbFun proxies2 _ -> proxies2
-      MkMbPair _ ns _ -> mapRAssign (const Proxy) ns
-
-
 -- README: inner-most bindings come FIRST
 -- | Combines a binding inside another binding into a single binding.
-mbCombine :: forall k (c1 :: RList k) (c2 :: RList k) b.
-             Mb c1 (Mb c2 b) -> Mb (c1 :++: c2) b
-mbCombine (MkMbPair _tRepr1 l1 (MkMbPair tRepr2 l2 b)) =
+mbCombine ::
+  forall k (c1 :: RList k) (c2 :: RList k) b.
+  RAssign Proxy c2 ->
+  Mb c1 (Mb c2 b) ->
+  Mb (c1 :++: c2) b
+mbCombine _ (MkMbPair (MbTypeReprMb tRepr2) l1 (ensureFreshPair -> (l2, b))) =
   MkMbPair tRepr2 (append l1 l2) b
-mbCombine (ensureFreshFun -> (proxies1, f1)) =
+mbCombine proxies2 (ensureFreshFun -> (proxies1, f1)) =
     -- README: we pass in Names with integer value 0 here in order to
     -- get out the proxies for the inner-most bindings; this is "safe"
     -- because these proxies should never depend on the names
     -- themselves
-    let proxies2 = freshFunctionProxies proxies1 f1 in
     MkMbFun
     (append proxies1 proxies2)
     (\ns ->
-         let (ns1, ns2) = split Proxy proxies2 ns in
-         let (_, f2) = ensureFreshFun (f1 ns1) in
-         f2 ns2)
-
+        case split Proxy proxies2 ns of
+         (ns1, ns2) ->
+           case ensureFreshFun (f1 ns1) of
+             (_, f2) -> f2 ns2)
 
 {-|
   Separates a binding into two nested bindings. The first argument, of
@@ -213,9 +205,10 @@ mbToProxy (MkMbPair _ ns _) = mapRAssign (\_ -> Proxy) ns
   Take a multi-binding inside another multi-binding and move the
   outer binding inside the ineer one.
 -}
-mbSwap :: Mb ctx1 (Mb ctx2 a) -> Mb ctx2 (Mb ctx1 a)
-mbSwap (ensureFreshFun -> (proxies1, f1)) =
-    let proxies2 = freshFunctionProxies proxies1 f1 in
+mbSwap :: RAssign Proxy ctx2 -> Mb ctx1 (Mb ctx2 a) -> Mb ctx2 (Mb ctx1 a)
+mbSwap _ (MkMbPair _ names1 (MkMbPair aRepr names2 a)) =
+  MkMbPair (MbTypeReprMb aRepr) names2 (MkMbPair aRepr names1 a)
+mbSwap proxies2 (ensureFreshFun -> (proxies1, f1)) =
     MkMbFun proxies2
       (\ns2 ->
          MkMbFun proxies1
@@ -223,7 +216,7 @@ mbSwap (ensureFreshFun -> (proxies1, f1)) =
             snd (ensureFreshFun (f1 ns1)) ns2))
 
 -- | Put a value inside a multi-binding
-mbPure :: RAssign f ctx -> a -> Mb ctx a
+mbPure :: RAssign Proxy ctx -> a -> Mb ctx a
 mbPure prxs = nuMulti prxs . const
 
 {-|
@@ -231,6 +224,8 @@ mbPure prxs = nuMulti prxs . const
   multi-binding that binds the same number and types of names.
 -}
 mbApply :: Mb ctx (a -> b) -> Mb ctx a -> Mb ctx b
+mbApply (MkMbPair (MbTypeReprFun _ bRepr) names1 f) (ensureFreshFun -> (_, mkA)) =
+  MkMbPair bRepr names1 (f (mkA names1))
 mbApply (ensureFreshFun -> (proxies, f_fun)) (ensureFreshFun -> (_, f_arg)) =
   MkMbFun proxies (\ns -> f_fun ns $ f_arg ns)
 
