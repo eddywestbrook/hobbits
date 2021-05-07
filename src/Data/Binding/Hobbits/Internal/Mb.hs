@@ -58,7 +58,7 @@ data MbTypeRepr a where
     MbTypeReprFun :: MbTypeRepr a -> MbTypeRepr b -> MbTypeRepr (a -> b)
     MbTypeReprData :: MbTypeReprData a -> MbTypeRepr a
 
-data MbTypeReprData a =
+newtype MbTypeReprData a =
     MkMbTypeReprData (NameRefresher -> a -> a)
 
 {-|
