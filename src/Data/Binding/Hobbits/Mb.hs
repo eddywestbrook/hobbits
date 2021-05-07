@@ -251,11 +251,10 @@ mbMap4 f mb1 mb2 mb3 mb4 = mbMap3 f mb1 mb2 mb3 `mbApply` mb4
 -------------------------------------------------------------------------------
 
 instance Functor (Mb ctx) where
-    fmap f mbArg =
-        mbApply (nuMulti (mbToProxy mbArg) (\_ -> f)) mbArg
+    fmap f (ensureFreshFun -> (px, g)) = MkMbFun px (f . g)
 
 instance TypeCtx ctx => Applicative (Mb ctx) where
-    pure x = nuMulti typeCtxProxies (const x)
+    pure  = mbPure typeCtxProxies
     (<*>) = mbApply
 
 
@@ -306,9 +305,7 @@ nuMultiWithElim f args =
 -- This should really be defined using 'mbLift', but doing so causes a
 -- circular include
 instance Eq a => Eq (Mb ctx a) where
-  mb1 == mb2 =
-    mbLiftBool $ nuMultiWithElim (\_ (_ :>: a1 :>: a2) ->
-                                   a1 == a2) (MNil :>: mb1 :>: mb2)
+  mb1 == mb2 = mbLiftBool (mbMap2 (==) mb1 mb2)
     where -- the same as 'mbLift' for 'Bool'
           mbLiftBool :: Mb ctx Bool -> Bool
           mbLiftBool mb_b = case mbMatch mb_b of
