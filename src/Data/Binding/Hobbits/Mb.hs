@@ -203,11 +203,13 @@ mbToProxy (MkMbPair _ ns _) = mapRAssign (\_ -> Proxy) ns
 
 {-|
   Take a multi-binding inside another multi-binding and move the
-  outer binding inside the ineer one.
+  outer binding inside the inner one.
 -}
 mbSwap :: RAssign Proxy ctx2 -> Mb ctx1 (Mb ctx2 a) -> Mb ctx2 (Mb ctx1 a)
 mbSwap _ (MkMbPair _ names1 (MkMbPair aRepr names2 a)) =
   MkMbPair (MbTypeReprMb aRepr) names2 (MkMbPair aRepr names1 a)
+mbSwap _ (MkMbPair (MbTypeReprMb aRepr) names1 (MkMbFun px2 f)) =
+  MkMbFun px2 (\names2 -> MkMbPair aRepr names1 (f names2))
 mbSwap proxies2 (ensureFreshFun -> (proxies1, f1)) =
     MkMbFun proxies2
       (\ns2 ->
