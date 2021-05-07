@@ -307,10 +307,9 @@ nuMultiWithElim f args =
 instance Eq a => Eq (Mb ctx a) where
   mb1 == mb2 = mbLiftBool (mbMap2 (==) mb1 mb2)
     where -- the same as 'mbLift' for 'Bool'
-          mbLiftBool :: Mb ctx Bool -> Bool
-          mbLiftBool mb_b = case mbMatch mb_b of
-            MatchedMb _ True -> True
-            MatchedMb _ False -> False
+      mbLiftBool mb_b =
+        case mbMatch mb_b of
+          MatchedMb _ x -> x
 
 
 {-|
