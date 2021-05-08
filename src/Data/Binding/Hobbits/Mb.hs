@@ -162,20 +162,13 @@ mbCombine ::
   RAssign Proxy c2 ->
   Mb c1 (Mb c2 b) ->
   Mb (c1 :++: c2) b
-mbCombine _ (MkMbPair (MbTypeReprMb tRepr2) l1 (ensureFreshPair -> (l2, b))) =
-  MkMbPair tRepr2 (append l1 l2) b
-mbCombine proxies2 (ensureFreshFun -> (proxies1, f1)) =
-    -- README: we pass in Names with integer value 0 here in order to
-    -- get out the proxies for the inner-most bindings; this is "safe"
-    -- because these proxies should never depend on the names
-    -- themselves
-    MkMbFun
-    (append proxies1 proxies2)
-    (\ns ->
-        case split Proxy proxies2 ns of
-         (ns1, ns2) ->
-           case ensureFreshFun (f1 ns1) of
-             (_, f2) -> f2 ns2)
+mbCombine _ (MkMbPair (MbTypeReprMb tRepr2) p1 (ensureFreshPair -> (p2, b))) =
+  MkMbPair tRepr2 (append p1 p2) b
+mbCombine p2 (ensureFreshFun -> (p1, f1)) =
+  MkMbFun (append p1 p2) $ \ns ->
+  case split Proxy p2 ns of
+    (ns1, ns2) -> snd (ensureFreshFun (f1 ns1)) ns2
+
 
 {-|
   Separates a binding into two nested bindings. The first argument, of
@@ -211,11 +204,9 @@ mbSwap _ (MkMbPair _ names1 (MkMbPair aRepr names2 a)) =
 mbSwap _ (MkMbPair (MbTypeReprMb aRepr) names1 (MkMbFun px2 f)) =
   MkMbFun px2 (\names2 -> MkMbPair aRepr names1 (f names2))
 mbSwap proxies2 (ensureFreshFun -> (proxies1, f1)) =
-    MkMbFun proxies2
-      (\ns2 ->
-         MkMbFun proxies1
-         (\ns1 ->
-            snd (ensureFreshFun (f1 ns1)) ns2))
+    MkMbFun proxies2 $ \ns2 ->
+    MkMbFun proxies1 $ \ns1 ->
+    snd (ensureFreshFun (f1 ns1)) ns2
 
 -- | Put a value inside a multi-binding
 mbPure :: RAssign Proxy ctx -> a -> Mb ctx a
@@ -229,7 +220,7 @@ mbApply :: Mb ctx (a -> b) -> Mb ctx a -> Mb ctx b
 mbApply (MkMbPair (MbTypeReprFun _ bRepr) names1 f) (ensureFreshFun -> (_, mkA)) =
   MkMbPair bRepr names1 (f (mkA names1))
 mbApply (ensureFreshFun -> (proxies, f_fun)) (ensureFreshFun -> (_, f_arg)) =
-  MkMbFun proxies (\ns -> f_fun ns $ f_arg ns)
+  MkMbFun proxies (\ns -> f_fun ns (f_arg ns))
 
 
 -- | Lift a binary function function to `Mb`s
