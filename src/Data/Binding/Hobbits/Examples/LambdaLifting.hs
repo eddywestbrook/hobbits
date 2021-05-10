@@ -57,13 +57,13 @@ data PeelRet c a where
              PeelRet c (AddArrows lc a)
 
 peelLambdas :: Mb c (Binding (L b) (Term a)) -> PeelRet c (b -> a)
-peelLambdas b = peelLambdasH MNil LType (mbCombine b)
+peelLambdas b = peelLambdasH MNil LType (mbCombine C.typeCtxProxies b)
 
 peelLambdasH ::
   lc ~ (lc0 :> b) => LC lc0 -> LType b -> Mb (c :++: lc) (Term a) ->
                      PeelRet c (AddArrows lc a)
 peelLambdasH lc0 ilt t = case mbMatch t of
-  [nuMP| Lam b |] -> peelLambdasH (lc0 :>: ilt) LType (mbCombine b)
+  [nuMP| Lam b |] -> peelLambdasH (lc0 :>: ilt) LType (mbCombine C.typeCtxProxies b)
   _               -> PeelRet (lc0 :>: ilt) t
 
 

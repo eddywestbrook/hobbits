@@ -59,7 +59,7 @@ tpretty t = pretty' (emptyMb t) C.empty 0
               Right n' -> "(free-var " ++ show n' ++ ")"
           [nuMP| Lam b |] ->
             let x = "x" ++ show n in
-            "(\\" ++ x ++ "." ++ pretty' (mbCombine b) (varnames :>: (StringF x)) (n+1) ++ ")"
+            "(\\" ++ x ++ "." ++ pretty' (mbCombine C.typeCtxProxies b) (varnames :>: (StringF x)) (n+1) ++ ")"
           [nuMP| App b1 b2 |] ->
             "(" ++ pretty' b1 varnames n ++ " " ++ pretty' b2 varnames n ++ ")"
 
@@ -125,13 +125,13 @@ mdecls_pretty mb_x varnames n = case mbMatch mb_x of
   [nuMP| Decls_Cons decl rest |] ->
     let fname = "F" ++ show n in
     fname ++ " " ++ (mdecl_pretty decl varnames 0) ++ "\n"
-    ++ mdecls_pretty (mbCombine rest) (varnames :>: (StringF fname)) (n+1)
+    ++ mdecls_pretty (mbCombine C.typeCtxProxies rest) (varnames :>: (StringF fname)) (n+1)
 
 mdecl_pretty :: Mb c (Decl a) -> RAssign StringF c -> Int -> String
 mdecl_pretty mb_x varnames n = case mbMatch mb_x of
   [nuMP| Decl_One t|] ->
     let vname = "x" ++ show n in
-    vname ++ " = " ++ mpretty (mbCombine t) (varnames :>: StringF vname)
+    vname ++ " = " ++ mpretty (mbCombine C.typeCtxProxies t) (varnames :>: StringF vname)
   [nuMP| Decl_Cons d|] ->
     let vname = "x" ++ show n in
-    vname ++ " " ++ mdecl_pretty (mbCombine d) (varnames :>: StringF vname) (n+1)
+    vname ++ " " ++ mdecl_pretty (mbCombine C.typeCtxProxies d) (varnames :>: StringF vname) (n+1)

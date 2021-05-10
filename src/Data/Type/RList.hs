@@ -1,7 +1,6 @@
 {-# LANGUAGE TypeOperators, EmptyDataDecls, RankNTypes #-}
 {-# LANGUAGE TypeFamilies, DataKinds, PolyKinds, KindSignatures #-}
-{-# LANGUAGE GADTs, TypeInType, PatternGuards #-}
-
+{-# LANGUAGE GADTs, TypeInType, PatternGuards, ScopedTypeVariables #-}
 -- |
 -- Module      : Data.Type.RList
 -- Copyright   : (c) 2016 Edwin Westbrook
@@ -219,9 +218,12 @@ toList = mapToList getConstant
 -- standard list:
 --
 -- > mapToList f = toList . map (Constant . f)
-mapToList :: (forall a. f a -> b) -> RAssign f ctx -> [b]
-mapToList _ MNil = []
-mapToList f (xs :>: x) = mapToList f xs ++ [f x]
+mapToList :: forall f ctx b. (forall a. f a -> b) -> RAssign f ctx -> [b]
+mapToList f = go []
+  where
+    go :: forall d. [b] -> RAssign f d -> [b]
+    go acc MNil       = acc
+    go acc (xs :>: x) = go (f x : acc) xs
 
 -- | Append two 'RAssign' vectors.
 append :: RAssign f c1 -> RAssign f c2 -> RAssign f (c1 :++: c2)
@@ -238,8 +240,9 @@ foldr f r (xs :>: x) = f x $ foldr f r xs
 split :: (c ~ (c1 :++: c2)) => prx c1 ->
                  RAssign any c2 -> RAssign f c -> (RAssign f c1, RAssign f c2)
 split _ MNil mc = (mc, MNil)
-split _ (any :>: _) (mc :>: x) = (mc1, mc2 :>: x)
-  where (mc1, mc2) = split Proxy any mc
+split _ (any :>: _) (mc :>: x) =
+  case split Proxy any mc of
+      (mc1, mc2) -> (mc1, mc2 :>: x)
 
 -- | Create a vector of proofs that each type in @c@ is a 'Member' of @c@.
 members :: RAssign f c -> RAssign (Member c) c

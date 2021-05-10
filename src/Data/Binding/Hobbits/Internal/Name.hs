@@ -158,7 +158,7 @@ fresh_name :: a -> Int
 fresh_name a = unsafePerformIO $ do 
     _dummyRef <- newIORef a
     x <- readIORef counter
-    writeIORef counter (x+1)
+    writeIORef counter $! x+1
     return x
 
 -- -- make one fresh name for each name in a given input list
