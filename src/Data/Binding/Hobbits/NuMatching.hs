@@ -44,6 +44,7 @@ import qualified Data.Vector as Vector
 --import Data.Typeable
 import Language.Haskell.TH hiding (Name, Type(..), cxt, clause)
 import qualified Language.Haskell.TH as TH
+import Language.Haskell.TH.Datatype.TyVarBndr
 import Control.Monad.State
 import Numeric.Natural
 import Data.Functor.Constant
@@ -63,7 +64,7 @@ import Data.Binding.Hobbits.Internal.Closed
 mapNames :: NuMatching a => NameRefresher -> a -> a
 mapNames = mapNamesPf nuMatchingProof
 
-matchDataDecl :: Dec -> Maybe (Cxt, TH.Name, [TyVarBndr], [Con])
+matchDataDecl :: Dec -> Maybe (Cxt, TH.Name, [TyVarBndrUnit], [Con])
 matchDataDecl (DataD cxt name tyvars _ constrs _) =
   Just (cxt, name, tyvars, constrs)
 matchDataDecl (NewtypeD cxt name tyvars _ constr _) =
@@ -314,7 +315,7 @@ mkNuMatching tQ =
                  $ AppE (ConE 'MbTypeReprData)
                    $ AppE (ConE 'MkMbTypeReprData)
                          $ LetE [SigD fName
-                                 $ TH.ForallT (map PlainTV tyvars) cxt mapNamesT,
+                                 $ TH.ForallT (map plainTVSpecified tyvars) cxt mapNamesT,
                                  FunD fName clauses]
                                (VarE fName)) []]]
 
@@ -329,10 +330,6 @@ mkNuMatching tQ =
                (VarE fname))
         -}
     where
-      -- extract the name from a TyVarBndr
-      tyBndrToName (PlainTV n) = n
-      tyBndrToName (KindedTV n _) = n
-
       -- fail for getMbTypeReprInfo
       getMbTypeReprInfoFail t extraMsg =
           fail ("mkMbTypeRepr: " ++ show t
@@ -351,7 +348,7 @@ mkNuMatching tQ =
           where
             success tyvarsReq constrs =
                 let tyvarsRet = if tyvars == [] && ctx == []
-                                then map tyBndrToName tyvarsReq
+                                then map tvName tyvarsReq
                                 else tyvars in
                 return (ctx,
                         foldl TH.AppT (TH.ConT tName) (map TH.VarT tyvars),
