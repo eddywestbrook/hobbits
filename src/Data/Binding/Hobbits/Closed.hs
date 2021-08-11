@@ -32,6 +32,7 @@ import Data.Binding.Hobbits.Internal.Name
 import Data.Binding.Hobbits.Internal.Mb
 import Data.Binding.Hobbits.Internal.Closed
 import Data.Binding.Hobbits.Mb
+import Data.Binding.Hobbits.NuMatching
 
 -- | @noClosedNames@ encodes the hobbits guarantee that no name can escape its
 -- multi-binding.
@@ -59,6 +60,13 @@ clMbApply (Closed f) (Closed a) = Closed (mbApply f a)
 -- closed
 clApplyCl :: Closed (Closed a -> b) -> Closed a -> Closed b
 clApplyCl (Closed f) a = Closed (f a)
+
+-- | Map a closed function over a name-binding. This is similar to 'fmap',
+-- except that it allows bindings in pair representations to stay in pair
+-- representation.
+mbMapCl :: NuMatching b => Closed (a -> b) -> Mb ctx a -> Mb ctx b
+mbMapCl (Closed f) (MkMbFun prxs body) = MkMbFun prxs (f . body)
+mbMapCl (Closed f) (MkMbPair _ ns body) = MkMbPair nuMatchingProof ns $ f body
 
 -- | Mark an object as closed without actually traversing it. This is unsafe if
 -- the object does in fact contain any names.
