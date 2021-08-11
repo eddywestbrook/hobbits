@@ -217,8 +217,10 @@ mbPure prxs = nuMulti prxs . const
   multi-binding that binds the same number and types of names.
 -}
 mbApply :: Mb ctx (a -> b) -> Mb ctx a -> Mb ctx b
-mbApply (MkMbPair (MbTypeReprFun _ bRepr) names1 f) (ensureFreshFun -> (_, mkA)) =
-  MkMbPair bRepr names1 (f (mkA names1))
+-- NOTE: the following is not safe! The second argument could in fact contain
+-- the first as a subterm, leading to multiple bindings of the same names!
+--mbApply (MkMbPair (MbTypeReprFun _ bRepr) names1 f) (ensureFreshFun -> (_, mkA)) =
+--  MkMbPair bRepr names1 (f (mkA names1))
 mbApply (ensureFreshFun -> (proxies, f_fun)) (ensureFreshFun -> (_, f_arg)) =
   MkMbFun proxies (\ns -> f_fun ns (f_arg ns))
 
