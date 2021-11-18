@@ -19,7 +19,7 @@ module Data.Binding.Hobbits.Closed (
   Closed(),
   -- * Operators involving 'Closed'
   unClosed, mkClosed, noClosedNames, clApply, clMbApply, clApplyCl,
-  mbMapCl, unsafeClose,
+  mbMapCl, mbMapClWithVars, unsafeClose,
   -- * Typeclass for inherently closed types
   Closable(..),
   -- * Typeclass for closable functors
@@ -68,6 +68,16 @@ clApplyCl (Closed f) a = Closed (f a)
 mbMapCl :: NuMatching b => Closed (a -> b) -> Mb ctx a -> Mb ctx b
 mbMapCl (Closed f) (MkMbFun prxs body) = MkMbFun prxs (f . body)
 mbMapCl (Closed f) (MkMbPair _ ns body) = MkMbPair nuMatchingProof ns $ f body
+
+-- | Map a closed function over a name-binding and the names it binds. This is
+-- similar to 'nuMultiWithElim1', except that it allows bindings in pair
+-- representations to stay in pair representation.
+mbMapClWithVars :: NuMatching b => Closed (RAssign Name ctx -> a -> b) ->
+                   Mb ctx a -> Mb ctx b
+mbMapClWithVars (Closed f) (MkMbFun prxs body) =
+  MkMbFun prxs (\ns -> f ns $ body ns)
+mbMapClWithVars (Closed f) (MkMbPair _ ns body) =
+  MkMbPair nuMatchingProof ns $ f ns body
 
 -- | Mark an object as closed without actually traversing it. This is unsafe if
 -- the object does in fact contain any names.
