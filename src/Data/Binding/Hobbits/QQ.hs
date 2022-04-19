@@ -43,6 +43,7 @@ import Data.Monoid (Any(..))
 import qualified Data.Binding.Hobbits.Internal.Utilities as IU
 import Data.Binding.Hobbits.Internal.Mb
 import Data.Binding.Hobbits.Internal.Closed
+import Data.Binding.Hobbits.Internal.Utilities
 import Data.Binding.Hobbits.PatternParser (parsePattern)
 import Data.Binding.Hobbits.NuMatching
 
@@ -153,9 +154,9 @@ nuMKit :: TH.Name -> TH.Name -> WrapKit
 nuMKit topVar namesVar = WrapKit {_varView = varView, _asXform = asXform, _topXform = topXform} where
   varView = (VarE 'same_ctx_M `AppE` VarE topVar) `compose`
         (appEMulti (ConE 'MkMbPair) [VarE 'nuMatchingProof, VarE namesVar])
-  asXform p = ViewP (VarE 'mbMatch) (ConP 'MatchedMb [WildP, p])
-  topXform b p = if b then AsP topVar $ ConP 'MatchedMb [VarP namesVar, p]
-                      else ConP 'MatchedMb [WildP, p]
+  asXform p = ViewP (VarE 'mbMatch) (conPCompat 'MatchedMb [WildP, p])
+  topXform b p = if b then AsP topVar $ conPCompat 'MatchedMb [VarP namesVar, p]
+                      else conPCompat 'MatchedMb [WildP, p]
 
 -- | Quasi-quoter for patterns that match over 'MatchedMb', for use with
 -- 'mbMatch'
@@ -168,7 +169,7 @@ nuMP = patQQ "nuMP" $ \s -> do
 -- | Builds a 'WrapKit' for parsing patterns that match over 'Closed'
 clKit :: WrapKit
 clKit = WrapKit {_varView = ConE 'Closed, _asXform = asXform, _topXform = const asXform}
-  where asXform p = ConP 'Closed [p]
+  where asXform p = conPCompat 'Closed [p]
 
 -- | Quasi-quoter for patterns that match over 'Closed', built using 'clKit'
 clP :: QuasiQuoter
