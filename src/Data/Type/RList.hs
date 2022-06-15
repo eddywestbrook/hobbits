@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeOperators, EmptyDataDecls, RankNTypes #-}
+{-# LANGUAGE TypeOperators, EmptyCase, EmptyDataDecls, RankNTypes #-}
 {-# LANGUAGE TypeFamilies, DataKinds, PolyKinds, KindSignatures #-}
 {-# LANGUAGE GADTs, TypeInType, PatternGuards, ScopedTypeVariables #-}
 -- |
@@ -182,6 +182,7 @@ data SplitAtMemberRet f ctx a where
 
 -- | Split an assignment at the point specified by a 'Member' proof
 memberSplitAt :: RAssign f ctx -> Member ctx a -> SplitAtMemberRet f ctx a
+memberSplitAt MNil        member      = case member of {}
 memberSplitAt (ctx :>: x) Member_Base = SplitAtMemberRet ctx x MNil
 memberSplitAt (ctx :>: y) (Member_Step memb) =
   case memberSplitAt ctx memb of

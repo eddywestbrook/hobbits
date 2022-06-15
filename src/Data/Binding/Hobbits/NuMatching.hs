@@ -58,6 +58,7 @@ import Data.Type.RList hiding (map)
 import Data.Binding.Hobbits.Internal.Name
 import Data.Binding.Hobbits.Internal.Mb
 import Data.Binding.Hobbits.Internal.Closed
+import Data.Binding.Hobbits.Internal.Utilities
 
 
 {-| Just like 'mapNamesPf', except uses the NuMatching class. -}
@@ -380,7 +381,7 @@ mkNuMatching tQ =
       getClauses names (NormalC cName cTypes : constrs) =
         do clause <-
              getClauseHelper names (map snd cTypes) (natsFrom 0)
-             (\l -> ConP cName (map (VarP . fst3) l))
+             (\l -> conPCompat cName (map (VarP . fst3) l))
              (\l -> foldl AppE (ConE cName) (map fst3 l))
            clauses <- getClauses names constrs
            return $ clause : clauses
@@ -396,7 +397,7 @@ mkNuMatching tQ =
       getClauses names (InfixC cType1 cName cType2 : constrs) =
         do clause <-
              getClauseHelper names (map snd [cType1, cType2]) (natsFrom 0)
-             (\l -> ConP cName (map (VarP . fst3) l))
+             (\l -> conPCompat cName (map (VarP . fst3) l))
              (\l -> foldl AppE (ConE cName) (map fst3 l))
            clauses <- getClauses names constrs
            return $ clause : clauses
@@ -405,7 +406,7 @@ mkNuMatching tQ =
         do clauses1 <-
              forM cNames $ \cName ->
              getClauseHelper names (map snd cTypes) (natsFrom 0)
-             (\l -> ConP cName (map (VarP . fst3) l))
+             (\l -> conPCompat cName (map (VarP . fst3) l))
              (\l -> foldl AppE (ConE cName) (map fst3 l))
            clauses2 <- getClauses names constrs
            return (clauses1 ++ clauses2)
@@ -508,7 +509,7 @@ mkMkMbTypeReprDataOld conNameQ =
         do clause <-
              getClauseHelper cxt name tyvars locTyvars (map snd cTypes)
              (natsFrom 0)
-             (\l -> ConP cName (map (VarP . fst3) l))
+             (\l -> conPCompat cName (map (VarP . fst3) l))
              (\l -> foldl AppE (ConE cName) (map (VarE . fst3) l))
            clauses <- getClauses cxt name tyvars locTyvars constrs
            return (clause : clauses)
@@ -536,7 +537,7 @@ mkMkMbTypeReprDataOld conNameQ =
         do clauses1 <-
              forM cNames $ \cName ->
              getClauseHelper cxt name tyvars locTyvars (map snd cTypes)
-             (natsFrom 0) (\l -> ConP cName (map (VarP . fst3) l))
+             (natsFrom 0) (\l -> conPCompat cName (map (VarP . fst3) l))
              (\l -> foldl AppE (ConE cName) (map (VarE . fst3) l))
            clauses2 <- getClauses cxt name tyvars locTyvars constrs
            return (clauses1 ++ clauses2)
@@ -572,15 +573,15 @@ mkMkMbTypeReprDataOld conNameQ =
 
       -- FIXME: it is not possible (or, at least, not easy) to determine
       -- if MbTypeRepr a is implied from a current Cxt... so we just add
-      -- everything we need to the returned Cxt, except for 
+      -- everything we need to the returned Cxt, except for
       ensureCxt1 :: Cxt -> [TyVarBndr] -> TH.Type -> CxtStateQ ()
       ensureCxt1 cxt locTyvars t = undefined
       {-
       ensureCxt1 cxt locTyvars t = do
         curCxt = get
         let fullCxt = cxt ++ curCxt
-        isOk <- isMbTypeRepr fullCxt 
+        isOk <- isMbTypeRepr fullCxt
 
-      isMbTypeRepr 
+      isMbTypeRepr
        -}
 -}
