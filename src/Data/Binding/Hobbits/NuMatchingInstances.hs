@@ -44,10 +44,6 @@ $(mkNuMatching [t| forall a b. NuMatching a => Constant a b |])
 $(mkNuMatching [t| forall f g a. (NuMatchingAny1 f,
                                   NuMatchingAny1 g) => Product f g a |])
 
-instance (NuMatchingAny1 f,
-          NuMatchingAny1 g) => NuMatchingAny1 (Product f g) where
-  nuMatchingAny1Proof = nuMatchingProof
-
 instance (Integral a, NuMatching a) => NuMatching (Ratio a) where
   nuMatchingProof =
     isoMbTypeRepr (\r -> (numerator r, denominator r)) (\(n,d) -> n%d)
