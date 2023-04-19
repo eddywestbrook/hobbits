@@ -45,7 +45,7 @@ import qualified Data.Vector as Vector
 import Language.Haskell.TH hiding (Name, Type(..), cxt, clause)
 import qualified Language.Haskell.TH as TH
 import Language.Haskell.TH.Datatype.TyVarBndr
-import Control.Monad.State
+import Control.Monad (forM)
 import Numeric.Natural
 import Data.Functor.Constant
 import Data.Kind as DK
