@@ -1,6 +1,10 @@
 {-# LANGUAGE TypeOperators, EmptyCase, EmptyDataDecls, RankNTypes #-}
 {-# LANGUAGE TypeFamilies, DataKinds, PolyKinds, KindSignatures #-}
-{-# LANGUAGE GADTs, TypeInType, PatternGuards, ScopedTypeVariables #-}
+{-# LANGUAGE GADTs, CPP, PatternGuards, ScopedTypeVariables #-}
+
+#if __GLASGOW_HASKELL__ < 806
+{-# LANGUAGE TypeInType #-}
+#endif
 -- |
 -- Module      : Data.Type.RList
 -- Copyright   : (c) 2016 Edwin Westbrook
