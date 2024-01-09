@@ -63,7 +63,7 @@ import Data.Binding.Hobbits.Internal.Utilities
 mapNames :: NuMatching a => NameRefresher -> a -> a
 mapNames = mapNamesPf nuMatchingProof
 
-matchDataDecl :: Dec -> Maybe (Cxt, TH.Name, [TyVarBndrUnit], [Con])
+matchDataDecl :: Dec -> Maybe (Cxt, TH.Name, [TyVarBndrVis], [Con])
 matchDataDecl (DataD cxt name tyvars _ constrs _) =
   Just (cxt, name, tyvars, constrs)
 matchDataDecl (NewtypeD cxt name tyvars _ constr _) =
