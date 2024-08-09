@@ -28,7 +28,7 @@ Library
     , deepseq
     , haskell-src-exts >= 1.17.1 && < 2
     , haskell-src-meta
-    , th-abstraction >= 0.4 && < 0.5
+    , th-abstraction >= 0.6 && < 0.8
     , th-expand-syns >= 0.3 && < 0.5
     , transformers
     , containers
