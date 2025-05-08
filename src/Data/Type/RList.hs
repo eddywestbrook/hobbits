@@ -21,7 +21,7 @@
 -- of the context.
 
 module Data.Type.RList (
-    RList, RNil, (:>), (:++:)
+    RList(..), (:++:)
   , Member(..), weakenMemberL
   , Append(..), mkAppend, mkMonoAppend, proxiesFromAppend
   , RAssign(..), empty, singleton, get, HApply(..), hget, modify, set

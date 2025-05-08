@@ -40,7 +40,7 @@ module Data.Binding.Hobbits (
   -- | Type lists track the types of bound variables.
 
   --module Data.Type.RList,
-  RList, RNil, (:>), RAssign(..), Member(..), (:++:), Append(..),
+  RList(..), RAssign(..), Member(..), (:++:), Append(..),
   -- | The "Data.Binding.Hobbits.NuMatching" module exposes the NuMatching
   -- class, which allows pattern-matching on (G)ADTs in the bodies of
   -- multi-bindings
@@ -50,7 +50,7 @@ module Data.Binding.Hobbits (
 
 import Data.Proxy
 import Data.Type.Equality
-import Data.Type.RList (RList, RNil, (:>), RAssign(..), Member(..), (:++:), Append(..))
+import Data.Type.RList (RList(..), RAssign(..), Member(..), (:++:), Append(..))
 import Data.Binding.Hobbits.Mb
 import Data.Binding.Hobbits.Closed
 import Data.Binding.Hobbits.QQ
