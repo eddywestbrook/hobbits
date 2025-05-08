@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeOperators, EmptyCase, EmptyDataDecls, RankNTypes #-}
 {-# LANGUAGE TypeFamilies, DataKinds, PolyKinds, KindSignatures #-}
-{-# LANGUAGE GADTs, CPP, PatternGuards, ScopedTypeVariables #-}
+{-# LANGUAGE GADTs, CPP, PatternGuards, ScopedTypeVariables, DeriveFunctor #-}
 
 #if __GLASGOW_HASKELL__ < 806
 {-# LANGUAGE TypeInType #-}
@@ -44,7 +44,7 @@ import Data.Typeable
 data RList a
   = RNil
   | (RList a) :> a
-  deriving (Eq, Ord)
+  deriving (Eq, Ord, Functor)
 
 type RNil = 'RNil
 type (:>) = '(:>)
@@ -136,7 +136,7 @@ proxiesFromAppend (Append_Step a) = proxiesFromAppend a :>: Proxy
 {-|
   An @RAssign f r@ an assignment of an @f a@ for each @a@ in the 'RList' @r@
 -}
-data RAssign (f :: k -> *) (c :: RList k) where
+data RAssign (f :: k -> Type) (c :: RList k) where
   MNil :: RAssign f RNil
   (:>:) :: RAssign f c -> f a -> RAssign f (c :> a)
 
