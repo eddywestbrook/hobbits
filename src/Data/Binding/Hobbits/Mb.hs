@@ -36,6 +36,7 @@ module Data.Binding.Hobbits.Mb (
 
 import Control.Monad.Identity
 
+import Data.Kind (Type)
 import Data.Type.Equality ((:~:)(..))
 import Data.Proxy (Proxy(..))
 
@@ -63,7 +64,7 @@ instance Show a => Show (Mb c a) where
   @nu f@ creates a binding which binds a fresh name @n@ and whose
   body is the result of @f n@.
 -}
-nu :: forall k1 (a :: k1) (b :: *) . (Name a -> b) -> Binding a b
+nu :: forall k1 (a :: k1) (b :: Type) . (Name a -> b) -> Binding a b
 nu f = MkMbFun (MNil :>: Proxy) (\(MNil :>: n) -> f n)
 
 {-|
@@ -175,7 +176,7 @@ mbCombine p2 (ensureFreshFun -> (p1, f1)) =
   type @'RAssign' any c2@, is a \"phantom\" argument to indicate how
   the context @c@ should be split.
 -}
-mbSeparate :: forall k (ctx1 :: RList k) (ctx2 :: RList k) (any :: k -> *) a.
+mbSeparate :: forall k (ctx1 :: RList k) (ctx2 :: RList k) (any :: k -> Type) a.
               RAssign any ctx2 -> Mb (ctx1 :++: ctx2) a ->
               Mb ctx1 (Mb ctx2 a)
 mbSeparate c2 (MkMbPair tRepr ns a) =
@@ -188,7 +189,7 @@ mbSeparate c2 (MkMbFun proxies f) =
 
 
 -- | Returns a proxy object that enumerates all the types in ctx.
-mbToProxy :: forall k (ctx :: RList k) (a :: *) .
+mbToProxy :: forall k (ctx :: RList k) (a :: Type) .
              Mb ctx a -> RAssign Proxy ctx
 mbToProxy (MkMbFun proxies _) = proxies
 mbToProxy (MkMbPair _ ns _) = mapRAssign (\_ -> Proxy) ns

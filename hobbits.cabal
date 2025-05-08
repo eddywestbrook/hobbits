@@ -1,5 +1,5 @@
 Name:                hobbits
-Version:             1.4
+Version:             1.4.1
 Synopsis:            A library for canonically representing terms with binding
 
 Description: A library for canonically representing terms with binding via a
@@ -9,7 +9,7 @@ Description: A library for canonically representing terms with binding via a
 License:             BSD3
 License-file:        LICENSE
 Author:              Eddy Westbrook, Nicolas Frisby, Paul Brauner
-Maintainer:          westbrook@galois.com
+Maintainer:          eddywestbrook@gmail.com
 
 Category:            Data Structures
 

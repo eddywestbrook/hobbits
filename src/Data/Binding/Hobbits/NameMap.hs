@@ -41,6 +41,7 @@ import qualified Prelude as Prelude (map)
 import Data.IntMap.Strict (IntMap)
 import qualified Data.IntMap.Strict as IntMap
 import Unsafe.Coerce
+import Data.Kind (Type)
 
 import Data.Binding.Hobbits.Internal.Name
 import Data.Binding.Hobbits.Mb
@@ -50,7 +51,7 @@ import Data.Binding.Hobbits.QQ
 
 -- | An element of a 'NameMap', where the name type @a@ is existentially
 -- quantified
-data NMElem (f :: k -> *) where
+data NMElem (f :: k -> Type) where
   NMElem :: f a -> NMElem f
 
 -- | Coerce an @'NMElem' f@ to an @f a@ for a specific type @a@. This assumes we
@@ -59,7 +60,7 @@ coerceNMElem :: NMElem f -> f a
 coerceNMElem (NMElem x) = unsafeCoerce x
 
 -- | A heterogeneous map from 'Name's of arbitrary type @a@ to elements of @f a@
-newtype NameMap (f :: k -> *) =
+newtype NameMap (f :: k -> Type) =
   NameMap (IntMap (NMElem f))
 
 -- | Internal-only helper function for mapping a unary function on 'IntMap's to

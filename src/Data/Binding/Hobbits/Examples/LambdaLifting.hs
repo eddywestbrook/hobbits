@@ -31,6 +31,7 @@ module Data.Binding.Hobbits.Examples.LambdaLifting (
   lambdaLift, mbLambdaLift
   ) where
 
+import Data.Kind (Type)
 import Data.Binding.Hobbits
 import qualified Data.Type.RList as C
 
@@ -48,7 +49,7 @@ import Control.Monad.Cont (Cont, runCont, cont)
 data LType a where LType :: LType (L a)
 type LC c = RAssign LType c
 
-type family AddArrows (c :: RList *) b
+type family AddArrows (c :: RList Type) b
 type instance AddArrows RNil b = b
 type instance AddArrows (c :> L a) b = AddArrows c (a -> b)
 

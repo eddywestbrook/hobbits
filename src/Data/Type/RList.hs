@@ -44,6 +44,7 @@ import Data.Typeable
 data RList a
   = RNil
   | (RList a) :> a
+  deriving (Eq, Ord)
 
 type RNil = 'RNil
 type (:>) = '(:>)

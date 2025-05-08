@@ -19,6 +19,7 @@ module Data.Binding.Hobbits.Examples.LambdaLifting.Terms
    DTerm(..), Decl(..), Decls(..)
   ) where
 
+import Data.Kind (Type)
 import Data.Binding.Hobbits
 import qualified Data.Type.RList as C
 
@@ -35,7 +36,7 @@ newtype StringF x = StringF { unStringF :: String }
 ------------------------------------------------------------
 
 -- Term datatype; no Ds since there's no declarations yet
-data Term :: * -> * where
+data Term :: Type -> Type where
   Var :: Name (L a) -> Term a
   Lam :: Binding (L b) (Term a) -> Term (b -> a)
   App :: Term (b -> a) -> Term b -> Term a
@@ -68,18 +69,18 @@ tpretty t = pretty' (emptyMb t) C.empty 0
 ------------------------------------------------------------
 
 -- terms under declarations
-data DTerm :: * -> * where
+data DTerm :: Type -> Type where
   TVar :: Name (L a) -> DTerm a
   TDVar :: Name (D a) -> DTerm a
   TApp :: DTerm (a -> b) -> DTerm a -> DTerm b
 
 -- we use this type for a definiens instead of putting lambdas on the front
-data Decl :: * -> * where
+data Decl :: Type -> Type where
   Decl_One :: Binding (L a) (DTerm b) -> Decl (a -> b)
   Decl_Cons :: Binding (L a) (Decl b) -> Decl (a -> b)
 
 -- top-level declarations with a return value
-data Decls :: * -> * where
+data Decls :: Type -> Type where
   Decls_Base :: DTerm a -> Decls a
   Decls_Cons :: Decl b -> Binding (D b) (Decls a) -> Decls a
 

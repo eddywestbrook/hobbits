@@ -90,7 +90,7 @@ fromRAssign :: RAssign (Name :: k -> Type) ctx -> NameSet k
 fromRAssign = fromList . namesToNamesList
 
 -- | An 'RAssign' of some unknown context
-data SomeRAssign (f :: k -> *) =
+data SomeRAssign (f :: k -> Type) =
   forall (ctx :: RList k). SomeRAssign (RAssign f ctx)
 
 -- | Convert a list of existentially quantified names to an existentially
